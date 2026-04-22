@@ -15,14 +15,22 @@ interface WarehouseLocation {
   };
 }
 
+interface RouteAction {
+  type: 'pickup' | 'dropoff';
+  cargoId: string;
+}
+
+interface RouteStop {
+  id: string;
+  warehouseName: string;
+  actions: RouteAction[];
+}
+
 interface Route {
   id: string;
-  cargoId: string;
   truckId: string;
-  cargoType: string;
   truckNumber: string;
-  origin: string;
-  destination: string;
+  stops: RouteStop[];
 }
 
 interface MapProps {
@@ -111,21 +119,6 @@ const Map: React.FC<MapProps> = ({ warehouses = [], routes = [], activeTruckId =
 
   return (
     <div style={{ width: '100%', height: '100%', position: 'relative' }}>
-      {/* 圖例 Legend - 只有在選取貨車時顯示 */}
-      {activeTruckId && (
-        <div className="map-legend">
-          <header className="legend-header">貨車配送階段圖例</header>
-          <div className="legend-items-grid">
-            {LEG_COLORS.map((color, idx) => (
-              <div key={idx} className="legend-item">
-                <span className="legend-color" style={{ backgroundColor: color }}></span>
-                <span>第 {idx + 1} 段</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       <MapContainer 
         center={center} 
         zoom={10} 
@@ -140,33 +133,68 @@ const Map: React.FC<MapProps> = ({ warehouses = [], routes = [], activeTruckId =
           url="https://wmts.nlsc.gov.tw/wmts/EMAP/default/GoogleMapsCompatible/{z}/{y}/{x}"
         />
         
-        {/* 渲染路線 */}
+        {/* 渲染分段路線 */}
         {coloredRoutes.map((route) => {
-          const originWh = warehouses.find(w => w.name === route.origin);
-          const destWh = warehouses.find(w => w.name === route.destination);
+          const stops = route.stops
+            .map(stop => {
+              const wh = warehouses.find(w => w.name === stop.warehouseName);
+              return wh ? [wh.location.lat, wh.location.lng] as [number, number] : null;
+            })
+            .filter((p): p is [number, number] => p !== null);
 
-          if (originWh && destWh) {
-            const path: [number, number][] = [
-              [originWh.location.lat, originWh.location.lng],
-              [destWh.location.lat, destWh.location.lng]
-            ];
+          // 將路徑拆分為多個線段，每段顏色不同
+          const segmentColors = [
+            '#3b82f6', // 藍
+            '#10b981', // 綠
+            '#f59e0b', // 橘
+            '#ef4444', // 紅
+            '#8b5cf6', // 紫
+            '#ec4899', // 粉
+            '#06b6d4', // 靛
+            '#f97316'  // 暖橘
+          ];
 
-            return (
+          if (stops.length > 1) {
+            return stops.slice(0, -1).map((startPos, idx) => (
               <Polyline 
-                key={route.id} 
-                positions={path} 
+                key={`${route.id}-seg-${idx}`}
+                positions={[startPos, stops[idx + 1]]}
                 pathOptions={{ 
-                  color: route.color, 
-                  weight: 4, 
+                  color: segmentColors[idx % segmentColors.length], 
+                  weight: 5, 
                   opacity: 0.8, 
-                  dashArray: '10, 10', 
+                  dashArray: '12, 10', 
                   lineJoin: 'round'
                 }} 
               />
-            );
+            ));
           }
           return null;
         })}
+
+        {/* 配送段圖例 (僅在選取貨車且有路徑時顯示) */}
+        {activeTruckId && coloredRoutes.find(r => r.truckId === activeTruckId)?.stops.length! > 1 && (
+          <div className="map-legend">
+            <div className="legend-title">🚚 運送階段</div>
+            <div className="legend-grid">
+              {(() => {
+                const activeRoute = coloredRoutes.find(r => r.truckId === activeTruckId);
+                const segmentCount = (activeRoute?.stops.length || 1) - 1;
+                const segmentColors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#06b6d4', '#f97316'];
+                
+                return [...Array(segmentCount)].map((_, i) => (
+                  <div key={i} className="legend-item">
+                    <span 
+                      className="legend-line" 
+                      style={{ backgroundColor: segmentColors[i % segmentColors.length] }}
+                    ></span>
+                    <span>段 {i + 1}</span>
+                  </div>
+                ));
+              })()}
+            </div>
+          </div>
+        )}
 
         {/* 渲染標記點 */}
         {warehouses.map((w) => (
