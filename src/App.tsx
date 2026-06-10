@@ -1,8 +1,7 @@
-import React from 'react';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Navbar from './components/Navbar';
-import Home from './pages/Home';
 import Warehouse from './pages/Warehouse';
+import InventoryMng from './pages/InventoryMng';
 
 function App() {
   return (
@@ -11,7 +10,7 @@ function App() {
       <div className="app-container">
         <Routes>
           <Route path="/" element={<Warehouse />} />
-          {/* <Route path="/" element={<Home />} /> */}
+          <Route path="/inventory" element={<InventoryMng />} />
         </Routes>
       </div>
     </Router>

@@ -1790,3 +1790,266 @@ p {
 .assigned-opacity {
   opacity: 0.85;
 }
+
+/* ========================================
+   庫存管理頁 (InventoryMng)
+   ======================================== */
+
+.inventory-page {
+  width: 100%;
+  max-width: 1200px;
+  padding: 0 24px;
+  display: flex;
+  flex-direction: column;
+}
+
+/* 倉庫分頁 — Chrome 分頁樣式 */
+.warehouse-tabs {
+  display: flex;
+  align-items: flex-end;
+  gap: 4px;
+  padding: 0 2px;
+  position: relative;
+  z-index: 1;
+}
+
+.tab-item {
+  display: flex;
+  align-items: center;
+  border-radius: 8px 8px 0 0;
+  border: 1px solid var(--glass-border);
+  border-bottom: none;
+  background: rgba(255,255,255,0.03);
+  margin-bottom: -1px;
+  overflow: hidden;
+  transition: background 0.2s, border-color 0.2s;
+}
+
+.tab-item:hover {
+  background: rgba(255,255,255,0.07);
+}
+
+.tab-item.active {
+  background: #141824;
+  border-color: var(--accent-primary);
+  border-top: 2px solid var(--accent-primary);
+  border-bottom: 1px solid #141824;
+  z-index: 2;
+}
+
+.tab-btn-label {
+  padding: 8px 14px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  cursor: pointer;
+  transition: color 0.2s;
+  white-space: nowrap;
+}
+
+.tab-item.active .tab-btn-label {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.tab-btn-delete {
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  border-left: 1px solid var(--glass-border);
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  line-height: 1;
+}
+
+.tab-btn-delete:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #ef4444;
+}
+
+.tab-btn.tab-add-btn {
+  padding: 7px 14px;
+  border-radius: 8px 8px 0 0;
+  border: 1px dashed var(--glass-border);
+  border-bottom: none;
+  background: transparent;
+  color: var(--accent-primary);
+  font-size: 0.875rem;
+  cursor: pointer;
+  margin-bottom: -1px;
+  transition: all 0.2s;
+}
+
+.tab-btn.tab-add-btn:hover {
+  background: rgba(99, 102, 241, 0.1);
+  border-color: var(--accent-primary);
+}
+
+.tabs-empty {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  padding: 8px 0;
+}
+
+/* 分頁內容區 */
+.inventory-content {
+  border: 1px solid var(--glass-border);
+  border-radius: 0 8px 8px 8px;
+  background: #141824;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* 工具列 */
+.inventory-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.inventory-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-main);
+}
+
+/* 表格 */
+.inventory-table-wrapper {
+  overflow-x: auto;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+}
+
+.inventory-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.875rem;
+}
+
+.inventory-table thead tr {
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.inventory-table th {
+  padding: 12px 16px;
+  text-align: left;
+  color: var(--text-muted);
+  font-weight: 600;
+  white-space: nowrap;
+  border-bottom: 1px solid var(--glass-border);
+}
+
+.inventory-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  color: var(--text-main);
+}
+
+.inventory-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.inventory-table tbody tr:hover td {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.item-name-cell {
+  font-weight: 500;
+}
+
+.qty-zero {
+  color: #ef4444;
+  font-weight: 600;
+}
+
+.table-empty {
+  text-align: center;
+  color: var(--text-muted);
+  padding: 32px !important;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.loading-cell {
+  text-align: center;
+  padding: 32px !important;
+}
+
+.loading-spinner {
+  display: inline-block;
+  width: 28px;
+  height: 28px;
+  border: 3px solid rgba(99, 102, 241, 0.2);
+  border-top-color: var(--accent-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* 操作按鈕 */
+.action-cell {
+  display: flex;
+  gap: 8px;
+}
+
+.btn-ship,
+.btn-detail {
+  padding: 4px 12px;
+  border-radius: 6px;
+  border: none;
+  font-size: 0.8rem;
+  cursor: pointer;
+  font-weight: 500;
+  transition: all 0.2s;
+}
+
+.btn-ship {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.btn-ship:hover {
+  background: var(--accent-primary);
+  color: #fff;
+}
+
+.btn-detail {
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.btn-detail:hover {
+  background: var(--accent-secondary);
+  color: #fff;
+}
+
+/* 明細 Modal */
+.detail-modal-content {
+  min-width: 480px;
+}
+
+.btn-delete-history {
+  padding: 3px 10px;
+  border-radius: 5px;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: rgba(239, 68, 68, 0.1);
+  color: #f87171;
+  font-size: 0.78rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+
+.btn-delete-history:hover {
+  background: #ef4444;
+  color: #fff;
+  border-color: #ef4444;
+}

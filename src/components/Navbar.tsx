@@ -1,4 +1,3 @@
-import React from 'react';
 import { Link, useLocation } from 'react-router-dom';
 
 const Navbar = () => {
@@ -8,8 +7,8 @@ const Navbar = () => {
     <nav className="navbar">
       <div className="nav-brand">RT Logistics</div>
       <div className="nav-links">
-        <Link to="/" className={location.pathname === '/' ? 'active' : ''}>首頁</Link>
-        {/* <Link to="/warehouse" className={location.pathname === '/warehouse' ? 'active' : ''}>倉管系統</Link> */}
+        <Link to="/" className={location.pathname === '/' ? 'active' : ''}>路線規劃</Link>
+        <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>庫存管理</Link>
       </div>
     </nav>
   );
