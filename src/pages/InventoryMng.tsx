@@ -28,6 +28,15 @@ interface HistoryRecord {
   notes: string
 }
 
+interface QueryRecord {
+  id: string
+  destination: string
+  quantity: number
+  date: string
+  notes: string
+  inventory: { item_name: string; part_number: string } | null
+}
+
 const InventoryMng: React.FC = () => {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [activeWarehouseId, setActiveWarehouseId] = useState('')
@@ -59,6 +68,12 @@ const InventoryMng: React.FC = () => {
   // 倉庫管理
   const [isAddWarehouseOpen, setIsAddWarehouseOpen] = useState(false)
   const [newWarehouseName, setNewWarehouseName] = useState('')
+
+  // 日期查詢
+  const [isDateQueryOpen, setIsDateQueryOpen] = useState(false)
+  const [queryDate, setQueryDate] = useState(new Date().toISOString().split('T')[0])
+  const [queryResults, setQueryResults] = useState<QueryRecord[]>([])
+  const [queryLoading, setQueryLoading] = useState(false)
 
   useEffect(() => {
     fetchWarehouses()
@@ -175,6 +190,22 @@ const InventoryMng: React.FC = () => {
     setIsShipModalOpen(true)
   }
 
+  const handleDateQuery = async () => {
+    setQueryLoading(true)
+    setQueryResults([])
+    const nextDay = new Date(queryDate)
+    nextDay.setDate(nextDay.getDate() + 1)
+    const { data, error } = await supabase
+      .from('history')
+      .select('id, destination, quantity, date, notes, inventory(item_name, part_number)')
+      .gte('date', queryDate)
+      .lt('date', nextDay.toISOString().split('T')[0])
+      .order('date', { ascending: false })
+    if (error) console.error(error)
+    setQueryResults((data as unknown as QueryRecord[]) || [])
+    setQueryLoading(false)
+  }
+
   const handleAddWarehouse = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newWarehouseName.trim()) return
@@ -233,7 +264,10 @@ const InventoryMng: React.FC = () => {
         {/* 工具列 */}
         <div className="inventory-toolbar">
           <h3 className="inventory-title">{activeWarehouse?.warehouse_name ?? '—'} 庫存清單</h3>
-          <Button className="btn-small" onClick={() => setIsAddModalOpen(true)} disabled={!activeWarehouseId}>+ 新增</Button>
+          <div style={{ display: 'flex', gap: '8px' }}>
+            <Button className="btn-small btn-query" onClick={() => setIsDateQueryOpen(true)}>日期查詢</Button>
+            <Button className="btn-small" onClick={() => setIsAddModalOpen(true)} disabled={!activeWarehouseId}>+ 新增</Button>
+          </div>
         </div>
 
         {/* 表格 */}
@@ -245,8 +279,8 @@ const InventoryMng: React.FC = () => {
               <th>料號</th>
               <th>品項</th>
               <th>入庫時間</th>
-              <th>當前數量</th>
               <th>原始數量</th>
+              <th>當前數量</th>
               <th>操作</th>
             </tr>
           </thead>
@@ -262,12 +296,12 @@ const InventoryMng: React.FC = () => {
                   <td>{item.part_number || '—'}</td>
                   <td className="item-name-cell">{item.item_name}</td>
                   <td>{new Date(item.created_at).toLocaleDateString('zh-TW')}</td>
+                  <td>{item.original_quantity}</td>
                   <td>
                     <span className={item.current_quantity <= 0 ? 'qty-zero' : ''}>
                       {item.current_quantity}
                     </span>
                   </td>
-                  <td>{item.original_quantity}</td>
                   <td className="action-cell">
                     <button className="btn-ship" onClick={() => openShipModal(item)}>出貨</button>
                     <button className="btn-detail" onClick={() => handleOpenDetail(item)}>明細</button>
@@ -406,6 +440,50 @@ const InventoryMng: React.FC = () => {
                     <td>
                       <button className="btn-delete-history" onClick={() => handleDeleteHistory(h.id)}>刪除</button>
                     </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          )}
+        </div>
+      </Modal>
+
+      {/* 日期查詢 Modal */}
+      <Modal isOpen={isDateQueryOpen} onClose={() => setIsDateQueryOpen(false)} title="出貨明細查詢">
+        <div className="date-query-modal">
+          <div className="date-query-bar">
+            <input
+              type="date"
+              className="date-query-input"
+              value={queryDate}
+              onChange={e => setQueryDate(e.target.value)}
+            />
+            <Button className="btn-small" onClick={handleDateQuery}>查詢</Button>
+          </div>
+
+          {queryLoading ? (
+            <p className="loading-cell"><span className="loading-spinner" /></p>
+          ) : queryResults.length === 0 ? (
+            <p className="table-empty">無出貨紀錄</p>
+          ) : (
+            <table className="inventory-table" style={{ marginTop: '12px' }}>
+              <thead>
+                <tr>
+                  <th>品項</th>
+                  <th>料號</th>
+                  <th>出貨倉庫</th>
+                  <th>數量</th>
+                  <th>備註</th>
+                </tr>
+              </thead>
+              <tbody>
+                {queryResults.map(r => (
+                  <tr key={r.id}>
+                    <td>{r.inventory?.item_name ?? '—'}</td>
+                    <td>{r.inventory?.part_number ?? '—'}</td>
+                    <td>{r.destination || '—'}</td>
+                    <td>{r.quantity}</td>
+                    <td>{r.notes || '—'}</td>
                   </tr>
                 ))}
               </tbody>

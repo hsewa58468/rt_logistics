@@ -2036,6 +2036,39 @@ p {
   min-width: 480px;
 }
 
+.btn-query {
+  background: rgba(168, 85, 247, 0.15) !important;
+  border: 1px solid rgba(168, 85, 247, 0.3) !important;
+  color: #c084fc !important;
+}
+
+.btn-query:hover {
+  background: var(--accent-secondary) !important;
+  color: #fff !important;
+}
+
+.date-query-modal {
+  min-width: 520px;
+}
+
+.date-query-bar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 4px;
+}
+
+.date-query-input {
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: rgba(255,255,255,0.05);
+  color: var(--text-main);
+  font-size: 0.875rem;
+  color-scheme: dark;
+}
+
 .btn-delete-history {
   padding: 3px 10px;
   border-radius: 5px;
