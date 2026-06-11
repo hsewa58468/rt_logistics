@@ -61,14 +61,14 @@ const InventoryMng: React.FC = () => {
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editItem, setEditItem] = useState<InventoryItem | null>(null);
   const [editForm, setEditForm] = useState({
-    warehouse_label: '',
-    part_number: '',
-    item_name: '',
+    warehouse_label: "",
+    part_number: "",
+    item_name: "",
     original_quantity: 0,
-    manufacture_date: '',
-    board_unit: '',
+    manufacture_date: "",
+    board_unit: "",
     paper: 0,
-    created_at: '',
+    created_at: "",
   });
 
   const [isShipModalOpen, setIsShipModalOpen] = useState(false);
@@ -252,14 +252,14 @@ const InventoryMng: React.FC = () => {
   const openEditModal = (item: InventoryItem) => {
     setEditItem(item);
     setEditForm({
-      warehouse_label: item.warehouse_label || '',
-      part_number: item.part_number || '',
+      warehouse_label: item.warehouse_label || "",
+      part_number: item.part_number || "",
       item_name: item.item_name,
       original_quantity: item.original_quantity,
-      manufacture_date: item.manufacture_date || '',
-      board_unit: item.board_unit || '',
+      manufacture_date: item.manufacture_date || "",
+      board_unit: item.board_unit || "",
       paper: item.paper ?? 0,
-      created_at: item.created_at.split('T')[0],
+      created_at: item.created_at.split("T")[0],
     });
     setIsEditModalOpen(true);
   };
@@ -267,17 +267,23 @@ const InventoryMng: React.FC = () => {
   const handleEditItem = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editItem) return;
-    const { error } = await supabase.from('inventory').update({
-      warehouse_label: editForm.warehouse_label,
-      part_number: editForm.part_number,
-      item_name: editForm.item_name,
-      original_quantity: editForm.original_quantity,
-      manufacture_date: editForm.manufacture_date || null,
-      board_unit: editForm.board_unit || null,
-      paper: editForm.paper || null,
-      created_at: editForm.created_at || editItem.created_at,
-    }).eq('item_id', editItem.item_id);
-    if (error) { console.error(error); return; }
+    const { error } = await supabase
+      .from("inventory")
+      .update({
+        warehouse_label: editForm.warehouse_label,
+        part_number: editForm.part_number,
+        item_name: editForm.item_name,
+        original_quantity: editForm.original_quantity,
+        manufacture_date: editForm.manufacture_date || null,
+        board_unit: editForm.board_unit || null,
+        paper: editForm.paper || null,
+        created_at: editForm.created_at || editItem.created_at,
+      })
+      .eq("item_id", editItem.item_id);
+    if (error) {
+      console.error(error);
+      return;
+    }
     setIsEditModalOpen(false);
     fetchItems(activeWarehouseId);
   };
@@ -360,7 +366,7 @@ const InventoryMng: React.FC = () => {
             >
               {w.warehouse_name}
             </button>
-            <button
+            {/* <button
               className="tab-btn-delete"
               onClick={(e) => {
                 e.stopPropagation();
@@ -369,7 +375,7 @@ const InventoryMng: React.FC = () => {
               title="刪除倉庫"
             >
               ×
-            </button>
+            </button> */}
           </div>
         ))}
         <button
@@ -592,39 +598,99 @@ const InventoryMng: React.FC = () => {
       </Modal>
 
       {/* 編輯品項 Modal */}
-      <Modal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} title="編輯庫存品項">
+      <Modal
+        isOpen={isEditModalOpen}
+        onClose={() => setIsEditModalOpen(false)}
+        title="編輯庫存品項"
+      >
         <form className="modal-form" onSubmit={handleEditItem}>
           <div className="form-group">
             <label>倉庫標籤</label>
-            <input type="text" value={editForm.warehouse_label} onChange={e => setEditForm(p => ({ ...p, warehouse_label: e.target.value }))} />
+            <input
+              type="text"
+              value={editForm.warehouse_label}
+              onChange={(e) =>
+                setEditForm((p) => ({ ...p, warehouse_label: e.target.value }))
+              }
+            />
           </div>
           <div className="form-group">
             <label>料號</label>
-            <input type="text" value={editForm.part_number} onChange={e => setEditForm(p => ({ ...p, part_number: e.target.value }))} />
+            <input
+              type="text"
+              value={editForm.part_number}
+              onChange={(e) =>
+                setEditForm((p) => ({ ...p, part_number: e.target.value }))
+              }
+            />
           </div>
           <div className="form-group">
             <label>品項名稱</label>
-            <input type="text" required value={editForm.item_name} onChange={e => setEditForm(p => ({ ...p, item_name: e.target.value }))} />
+            <input
+              type="text"
+              required
+              value={editForm.item_name}
+              onChange={(e) =>
+                setEditForm((p) => ({ ...p, item_name: e.target.value }))
+              }
+            />
           </div>
           <div className="form-group">
             <label>數量</label>
-            <input type="number" min={0} value={editForm.original_quantity} onChange={e => setEditForm(p => ({ ...p, original_quantity: +e.target.value }))} />
+            <input
+              type="number"
+              min={0}
+              value={editForm.original_quantity}
+              onChange={(e) =>
+                setEditForm((p) => ({
+                  ...p,
+                  original_quantity: +e.target.value,
+                }))
+              }
+            />
           </div>
           <div className="form-group">
             <label>入庫時間</label>
-            <input type="date" value={editForm.created_at} onChange={e => setEditForm(p => ({ ...p, created_at: e.target.value }))} />
+            <input
+              type="date"
+              value={editForm.created_at}
+              onChange={(e) =>
+                setEditForm((p) => ({ ...p, created_at: e.target.value }))
+              }
+            />
           </div>
           <div className="form-group">
             <label>製造日期</label>
-            <input type="date" value={editForm.manufacture_date} onChange={e => setEditForm(p => ({ ...p, manufacture_date: e.target.value }))} />
+            <input
+              type="date"
+              value={editForm.manufacture_date}
+              onChange={(e) =>
+                setEditForm((p) => ({ ...p, manufacture_date: e.target.value }))
+              }
+            />
           </div>
           <div className="form-group">
             <label>每棧箱數</label>
-            <input type="text" placeholder="選填" value={editForm.board_unit} onChange={e => setEditForm(p => ({ ...p, board_unit: e.target.value }))} />
+            <input
+              type="text"
+              placeholder="選填"
+              value={editForm.board_unit}
+              onChange={(e) =>
+                setEditForm((p) => ({ ...p, board_unit: e.target.value }))
+              }
+            />
           </div>
           <div className="form-group">
             <label>文件數量</label>
-            <input type="number" min={0} placeholder="選填" value={editForm.paper || ''} onChange={e => setEditForm(p => ({ ...p, paper: +e.target.value || 0 }))} />
+            <input
+              type="number"
+              min={0}
+              placeholder="選填"
+              value={editForm.paper || ""}
+              onChange={(e) =>
+                setEditForm((p) => ({ ...p, paper: +e.target.value || 0 }))
+              }
+            />
           </div>
           <Button className="btn-full">確認修改</Button>
         </form>
