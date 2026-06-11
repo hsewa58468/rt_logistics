@@ -1,4 +1,4 @@
-import { Link, useLocation } from 'react-router-dom';
+import { Link, useLocation } from "react-router-dom";
 
 const Navbar = () => {
   const location = useLocation();
@@ -7,8 +7,18 @@ const Navbar = () => {
     <nav className="navbar">
       <div className="nav-brand">RT Logistics</div>
       <div className="nav-links">
-        <Link to="/" className={location.pathname === '/' ? 'active' : ''}>路線規劃</Link>
-        <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>庫存管理</Link>
+        <Link
+          to="/"
+          className={location.pathname === "/path_plan" ? "active" : ""}
+        >
+          路線規劃
+        </Link>
+        <Link
+          to="/inventory"
+          className={location.pathname === "/inventory" ? "active" : ""}
+        >
+          庫存管理
+        </Link>
       </div>
     </nav>
   );
