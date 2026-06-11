@@ -1929,6 +1929,8 @@ p {
 /* 表格 */
 .inventory-table-wrapper {
   overflow-x: auto;
+  overflow-y: auto;
+  max-height: calc(100vh - 220px);
   border-radius: 8px;
   border: 1px solid var(--glass-border);
 }
@@ -1941,6 +1943,13 @@ p {
 
 .inventory-table thead tr {
   background: rgba(255, 255, 255, 0.05);
+}
+
+.inventory-table thead th {
+  position: sticky;
+  top: 0;
+  z-index: 1;
+  background: #1a1f2e;
 }
 
 .inventory-table th {
