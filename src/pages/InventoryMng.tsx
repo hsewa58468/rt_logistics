@@ -288,6 +288,16 @@ const InventoryMng: React.FC = () => {
     fetchItems(activeWarehouseId);
   };
 
+  const handleDeleteItem = async () => {
+    if (!editItem) return;
+    if (!window.confirm(`確定刪除「${editItem.item_name}」？相關出貨紀錄也將一併刪除。`)) return;
+    await supabase.from('history').delete().eq('item_id', editItem.item_id);
+    const { error } = await supabase.from('inventory').delete().eq('item_id', editItem.item_id);
+    if (error) { console.error(error); return; }
+    setIsEditModalOpen(false);
+    fetchItems(activeWarehouseId);
+  };
+
   const handleDateQuery = async () => {
     setQueryLoading(true);
     setQueryResults([]);
@@ -296,8 +306,9 @@ const InventoryMng: React.FC = () => {
     const { data, error } = await supabase
       .from("history")
       .select(
-        "id, destination, quantity, date, notes, inventory(item_name, part_number)",
+        "id, destination, quantity, date, notes, inventory!inner(item_name, part_number, warehouse_id)",
       )
+      .eq("inventory.warehouse_id", activeWarehouseId)
       .gte("date", queryDate)
       .lt("date", nextDay.toISOString().split("T")[0])
       .order("date", { ascending: false });
@@ -693,6 +704,7 @@ const InventoryMng: React.FC = () => {
             />
           </div>
           <Button className="btn-full">確認修改</Button>
+          <button type="button" className="btn-delete-item" onClick={handleDeleteItem}>刪除此貨物</button>
         </form>
       </Modal>
 
