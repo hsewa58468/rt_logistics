@@ -12,17 +12,20 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
-          <Route path="/*" element={
-            <ProtectedRoute>
-              <Navbar />
-              <div className="app-container">
-                <Routes>
-                  <Route path="/" element={<Warehouse />} />
-                  <Route path="/inventory" element={<InventoryMng />} />
-                </Routes>
-              </div>
-            </ProtectedRoute>
-          } />
+          <Route
+            path="/*"
+            element={
+              <ProtectedRoute>
+                <Navbar />
+                <div className="app-container">
+                  <Routes>
+                    <Route path="/" element={<Warehouse />} />
+                    <Route path="/inventory" element={<InventoryMng />} />
+                  </Routes>
+                </div>
+              </ProtectedRoute>
+            }
+          />
         </Routes>
       </Router>
     </AuthProvider>

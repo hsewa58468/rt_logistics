@@ -132,7 +132,9 @@ p {
   font-size: 16px;
   font-weight: 600;
   cursor: pointer;
-  transition: transform 0.2s, box-shadow 0.2s;
+  transition:
+    transform 0.2s,
+    box-shadow 0.2s;
 }
 
 .btn-primary:hover {
@@ -184,7 +186,8 @@ p {
   transition: color 0.2s;
 }
 
-.nav-links a:hover, .nav-links a.active {
+.nav-links a:hover,
+.nav-links a.active {
   color: var(--text-main);
 }
 
@@ -363,7 +366,8 @@ p {
   margin-left: 4px;
 }
 
-.cargo-route-info, .truck-loc-info {
+.cargo-route-info,
+.truck-loc-info {
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -379,10 +383,10 @@ p {
 .route-step:first-child::after {
   content: '';
   position: absolute;
-  top: 13px; 
+  top: 13px;
   left: 3px;
   width: 2px;
-  height: 22px; 
+  height: 22px;
   background: rgba(255, 255, 255, 0.5);
   z-index: 0;
 }
@@ -393,8 +397,12 @@ p {
   border-radius: 50%;
 }
 
-.dot.origin { background: var(--accent-primary); }
-.dot.dest { background: var(--accent-secondary); }
+.dot.origin {
+  background: var(--accent-primary);
+}
+.dot.dest {
+  background: var(--accent-secondary);
+}
 
 .loc-name {
   font-weight: 600;
@@ -443,7 +451,7 @@ p {
   max-height: 250px;
   overflow-y: auto;
   z-index: 3000;
-  box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
 }
 
 .custom-option {
@@ -490,8 +498,12 @@ p {
   padding: 3px;
 }
 
-.down { transform: rotate(45deg); }
-.up { transform: rotate(-135deg); }
+.down {
+  transform: rotate(45deg);
+}
+.up {
+  transform: rotate(-135deg);
+}
 
 /* Route Appointment Box */
 .appointment-box {
@@ -545,7 +557,10 @@ p {
   padding-bottom: 0.5rem;
 }
 
-.route-id { font-size: 12px; color: var(--text-muted); }
+.route-id {
+  font-size: 12px;
+  color: var(--text-muted);
+}
 
 .route-status-line {
   display: flex;
@@ -554,7 +569,9 @@ p {
   font-weight: 600;
 }
 
-.route-arrow { color: var(--accent-primary); }
+.route-arrow {
+  color: var(--accent-primary);
+}
 
 .empty-records {
   text-align: center;
@@ -619,10 +636,26 @@ p {
   align-items: center;
 }
 
-.cargo-type { font-weight: 600; color: var(--text-main); }
-.cargo-qty { color: var(--accent-primary); font-weight: 700; display: flex; align-items: baseline; gap: 4px; }
-.cargo-unit { font-size: 0.7rem; color: var(--text-muted); font-weight: 400; }
-.cargo-loc { color: var(--text-muted); font-size: 13px; }
+.cargo-type {
+  font-weight: 600;
+  color: var(--text-main);
+}
+.cargo-qty {
+  color: var(--accent-primary);
+  font-weight: 700;
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+}
+.cargo-unit {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+.cargo-loc {
+  color: var(--text-muted);
+  font-size: 13px;
+}
 
 /* Modal Styles */
 .modal-overlay {
@@ -693,7 +726,8 @@ p {
   color: var(--text-muted);
 }
 
-.form-group input, .form-select {
+.form-group input,
+.form-select {
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid var(--glass-border);
   padding: 13px;
@@ -710,7 +744,8 @@ p {
   }
 }
 
-.form-group input:focus, .form-select:focus {
+.form-group input:focus,
+.form-select:focus {
   border-color: var(--accent-primary);
 }
 
@@ -724,7 +759,7 @@ p {
   overflow: hidden;
 }
 
-.number-spinner input[type="number"] {
+.number-spinner input[type='number'] {
   flex: 1;
   background: transparent;
   border: none;
@@ -735,8 +770,8 @@ p {
   -moz-appearance: textfield; /* Firefox */
 }
 
-.number-spinner input[type="number"]::-webkit-outer-spin-button,
-.number-spinner input[type="number"]::-webkit-inner-spin-button {
+.number-spinner input[type='number']::-webkit-outer-spin-button,
+.number-spinner input[type='number']::-webkit-inner-spin-button {
   -webkit-appearance: none;
   margin: 0;
 }
@@ -764,7 +799,10 @@ p {
   transform: scale(0.95);
 }
 
-.btn-full { width: 100%; margin-top: 16px; }
+.btn-full {
+  width: 100%;
+  margin-top: 16px;
+}
 
 /* Truck List Styles */
 .data-grid-header-truck {
@@ -788,8 +826,14 @@ p {
   align-items: center;
 }
 
-.truck-number { font-weight: 600; color: var(--text-main); }
-.truck-origin { color: var(--accent-primary); font-weight: 700; }
+.truck-number {
+  font-weight: 600;
+  color: var(--text-main);
+}
+.truck-origin {
+  color: var(--accent-primary);
+  font-weight: 700;
+}
 
 /* Route Builder Styles */
 .route-builder {
@@ -1099,8 +1143,14 @@ p {
 }
 
 @keyframes fadeIn {
-  from { opacity: 0; transform: translateY(10px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 /* Cargo Filter Bar Styles */
@@ -1936,26 +1986,37 @@ p {
 .warehouse-tabs {
   display: flex;
   align-items: flex-end;
+  flex-wrap: nowrap;
   gap: 4px;
   padding: 0 2px;
   position: relative;
   z-index: 1;
+  overflow-x: auto;
+  scrollbar-width: none;
+  scroll-behavior: smooth;
+}
+
+.warehouse-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .tab-item {
   display: flex;
   align-items: center;
+  flex-shrink: 0;
   border-radius: 8px 8px 0 0;
   border: 1px solid var(--glass-border);
   border-bottom: none;
-  background: rgba(255,255,255,0.03);
+  background: rgba(255, 255, 255, 0.03);
   margin-bottom: -1px;
   overflow: hidden;
-  transition: background 0.2s, border-color 0.2s;
+  transition:
+    background 0.2s,
+    border-color 0.2s;
 }
 
 .tab-item:hover {
-  background: rgba(255,255,255,0.07);
+  background: rgba(255, 255, 255, 0.07);
 }
 
 .tab-item.active {
@@ -2011,6 +2072,7 @@ p {
   font-size: 0.875rem;
   cursor: pointer;
   margin-bottom: -1px;
+  flex-shrink: 0;
   transition: all 0.2s;
 }
 
@@ -2114,7 +2176,9 @@ p {
 }
 
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .loading-cell {
@@ -2226,7 +2290,7 @@ p {
   padding: 8px 12px;
   border-radius: 8px;
   border: 1px solid var(--glass-border);
-  background: rgba(255,255,255,0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-main);
   font-size: 0.875rem;
   color-scheme: dark;
@@ -2268,4 +2332,123 @@ p {
   background: #ef4444;
   color: #fff;
   border-color: #ef4444;
+}
+
+/* ========================================
+   Hamburger & Mobile Nav
+   ======================================== */
+
+.nav-hamburger {
+  display: none;
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 8px;
+  align-items: center;
+  justify-content: center;
+}
+
+.hamburger-icon {
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--text-main);
+  position: relative;
+  transition: background 0.25s;
+}
+
+.hamburger-icon::before,
+.hamburger-icon::after {
+  content: '';
+  display: block;
+  width: 22px;
+  height: 2px;
+  background: var(--text-main);
+  position: absolute;
+  transition:
+    transform 0.25s,
+    top 0.25s;
+}
+
+.hamburger-icon::before {
+  top: -7px;
+}
+.hamburger-icon::after {
+  top: 7px;
+}
+
+.hamburger-icon.open {
+  background: transparent;
+}
+.hamburger-icon.open::before {
+  top: 0;
+  transform: rotate(45deg);
+}
+.hamburger-icon.open::after {
+  top: 0;
+  transform: rotate(-45deg);
+}
+
+.nav-mobile-menu {
+  position: fixed;
+  top: var(--nav-height);
+  left: 0;
+  right: 0;
+  background: rgba(12, 15, 23, 0.97);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid var(--glass-border);
+  display: flex;
+  flex-direction: column;
+  padding: 20px 24px;
+  gap: 18px;
+  z-index: 998;
+}
+
+.nav-mobile-menu a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 1.1rem;
+  font-weight: 500;
+  transition: color 0.2s;
+}
+
+.nav-mobile-menu a.active,
+.nav-mobile-menu a:hover {
+  color: var(--text-main);
+}
+
+.nav-mobile-user {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--glass-border);
+}
+
+/* ========================================
+   Mobile Responsive
+   ======================================== */
+
+@media (max-width: 768px) {
+  .nav-hamburger {
+    display: flex;
+  }
+  .nav-links {
+    display: none;
+  }
+  .nav-user {
+    display: none;
+  }
+
+  .inventory-page {
+    width: 100%;
+    padding: 0 12px;
+  }
+
+  .detail-modal-content,
+  .date-query-modal {
+    min-width: unset;
+    width: 100%;
+  }
 }

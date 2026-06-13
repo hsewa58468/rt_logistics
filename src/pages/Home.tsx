@@ -1,5 +1,5 @@
-import React from 'react';
-import Button from '../components/Button';
+import React from 'react'
+import Button from '../components/Button'
 
 const Home = () => {
   return (
@@ -14,15 +14,11 @@ const Home = () => {
         使用 Vite + React + Vanilla CSS 建立
       </div>
     </div>
-  );
-};
+  )
+}
 
 const HomeActions = () => {
-  return (
-    <Button onClick={() => alert('專案已啟動！')}>
-      立即開始
-    </Button>
-  );
-};
+  return <Button onClick={() => alert('專案已啟動！')}>立即開始</Button>
+}
 
-export default Home;
+export default Home

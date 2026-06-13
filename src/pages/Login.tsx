@@ -40,7 +40,7 @@ const Login = () => {
               required
               autoFocus
               value={email}
-              onChange={e => setEmail(e.target.value)}
+              onChange={(e) => setEmail(e.target.value)}
             />
           </div>
           <div className="form-group">
@@ -50,14 +50,18 @@ const Login = () => {
               placeholder="••••••••"
               required
               value={password}
-              onChange={e => setPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
 
           {error && <p className="login-error">{error}</p>}
 
           <button className="login-btn" type="submit" disabled={loading}>
-            {loading ? <span className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} /> : '登入'}
+            {loading ? (
+              <span className="loading-spinner" style={{ width: 18, height: 18, borderWidth: 2 }} />
+            ) : (
+              '登入'
+            )}
           </button>
         </form>
       </div>
