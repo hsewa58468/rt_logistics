@@ -64,7 +64,7 @@ body {
 
 body::before {
   content: '';
-  position: absolute;
+  position: fixed;
   top: -10%;
   left: -10%;
   width: 40%;
@@ -77,7 +77,7 @@ body::before {
 
 body::after {
   content: '';
-  position: absolute;
+  position: fixed;
   bottom: -10%;
   right: -10%;
   width: 40%;
@@ -1800,12 +1800,133 @@ p {
 }
 
 /* ========================================
+   登入頁
+   ======================================== */
+
+.login-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background-color: var(--bg-color);
+}
+
+.login-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  padding: 40px;
+  width: 100%;
+  max-width: 380px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-brand {
+  font-size: 1.5rem;
+  font-weight: 700;
+  background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  text-align: center;
+  margin-bottom: 4px;
+}
+
+.login-subtitle {
+  color: var(--text-muted);
+  font-size: 0.875rem;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-error {
+  color: #f87171;
+  font-size: 0.825rem;
+  text-align: center;
+  padding: 8px;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: 6px;
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  margin: 0;
+}
+
+.login-btn {
+  width: 100%;
+  padding: 10px;
+  border-radius: 8px;
+  border: none;
+  background: var(--accent-primary);
+  color: #fff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: opacity 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 40px;
+  margin-top: 4px;
+}
+
+.login-btn:hover {
+  opacity: 0.85;
+}
+
+.login-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.auth-loading {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Navbar 使用者區塊 */
+.nav-user {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.nav-email {
+  color: var(--text-muted);
+  font-size: 0.8rem;
+}
+
+.nav-logout-btn {
+  padding: 5px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.nav-logout-btn:hover {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+/* ========================================
    庫存管理頁 (InventoryMng)
    ======================================== */
 
 .inventory-page {
-  width: 100%;
-  max-width: 1200px;
+  width: 80%;
+  max-width: 1600px;
   padding: 0 24px;
   display: flex;
   flex-direction: column;
@@ -1847,10 +1968,12 @@ p {
 
 .tab-btn-label {
   padding: 8px 14px;
+  min-width: 60px;
   background: none;
   border: none;
   color: var(--text-muted);
-  font-size: 0.875rem;
+  font-size: 1rem;
+  font-weight: bold;
   cursor: pointer;
   transition: color 0.2s;
   white-space: nowrap;
@@ -2063,6 +2186,17 @@ p {
 /* 明細 Modal */
 .detail-modal-content {
   min-width: 480px;
+}
+
+.btn-export {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border: 1px solid rgba(16, 185, 129, 0.3) !important;
+  color: #34d399 !important;
+}
+
+.btn-export:hover {
+  background: #10b981 !important;
+  color: #fff !important;
 }
 
 .btn-query {

@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from "react";
-import { supabase } from "../lib/supabase";
-import Modal from "../components/Modal";
-import Button from "../components/Button";
+import React, { useState, useEffect } from 'react'
+import * as XLSX from 'xlsx'
+import { supabase } from '../lib/supabase'
+import Modal from '../components/Modal'
+import Button from '../components/Button'
 
 interface Warehouse {
   warehouse_id: string;
@@ -37,8 +38,10 @@ interface QueryRecord {
   quantity: number;
   date: string;
   notes: string;
-  inventory: { item_name: string; part_number: string } | null;
+  inventory: { item_name: string; part_number: string; created_at: string } | null;
 }
+
+const todayTW = () => new Date().toLocaleDateString('sv', { timeZone: 'Asia/Taipei' })
 
 const InventoryMng: React.FC = () => {
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
@@ -55,7 +58,7 @@ const InventoryMng: React.FC = () => {
     manufacture_date: "",
     board_unit: "",
     paper: 0,
-    created_at: new Date().toISOString().split("T")[0],
+    created_at: todayTW(),
   });
 
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
@@ -76,7 +79,7 @@ const InventoryMng: React.FC = () => {
   const [shipForm, setShipForm] = useState({
     destination: "",
     quantity: 1,
-    date: new Date().toISOString().split("T")[0],
+    date: todayTW(),
     notes: "",
   });
 
@@ -89,10 +92,14 @@ const InventoryMng: React.FC = () => {
   const [isAddWarehouseOpen, setIsAddWarehouseOpen] = useState(false);
   const [newWarehouseName, setNewWarehouseName] = useState("");
 
+  // 庫存匯出
+  const [isExportModalOpen, setIsExportModalOpen] = useState(false);
+  const [exportDate, setExportDate] = useState(todayTW());
+
   // 日期查詢
   const [isDateQueryOpen, setIsDateQueryOpen] = useState(false);
   const [queryDate, setQueryDate] = useState(
-    new Date().toISOString().split("T")[0],
+    todayTW(),
   );
   const [queryResults, setQueryResults] = useState<QueryRecord[]>([]);
   const [queryLoading, setQueryLoading] = useState(false);
@@ -187,7 +194,7 @@ const InventoryMng: React.FC = () => {
       manufacture_date: "",
       board_unit: "",
       paper: 0,
-      created_at: new Date().toISOString().split("T")[0],
+      created_at: todayTW(),
     });
     fetchItems(activeWarehouseId);
   };
@@ -243,7 +250,7 @@ const InventoryMng: React.FC = () => {
     setShipForm({
       destination: "",
       quantity: 1,
-      date: new Date().toISOString().split("T")[0],
+      date: todayTW(),
       notes: "",
     });
     setIsShipModalOpen(true);
@@ -306,7 +313,7 @@ const InventoryMng: React.FC = () => {
     const { data, error } = await supabase
       .from("history")
       .select(
-        "id, destination, quantity, date, notes, inventory!inner(item_name, part_number, warehouse_id)",
+        "id, destination, quantity, date, notes, inventory!inner(item_name, part_number, warehouse_id, created_at)",
       )
       .eq("inventory.warehouse_id", activeWarehouseId)
       .gte("date", queryDate)
@@ -316,6 +323,135 @@ const InventoryMng: React.FC = () => {
     setQueryResults((data as unknown as QueryRecord[]) || []);
     setQueryLoading(false);
   };
+
+  const autoFitCols = (ws: XLSX.WorkSheet, skipRows = 0) => {
+    const rows = (XLSX.utils.sheet_to_json<(string | number)[]>(ws, { header: 1 }) as (string | number)[][]).slice(skipRows)
+    const widths: number[] = []
+    rows.forEach(row => {
+      row.forEach((cell, i) => {
+        const len = [...String(cell ?? '')].reduce((w, c) => w + (c.charCodeAt(0) > 127 ? 2 : 1), 0)
+        widths[i] = Math.max(widths[i] ?? 0, len)
+      })
+    })
+    ws['!cols'] = widths.map(w => ({ wch: w + 2 }))
+  }
+
+  const fmtDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '—'
+    return new Date(dateStr).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })
+  }
+
+  const exportQueryToExcel = () => {
+    const warehouseName = activeWarehouse?.warehouse_name ?? ''
+    const formattedDate = queryDate.replace(/-/g, '/')
+    const title = `${warehouseName} 庫 ${formattedDate} 出貨明細`
+
+    const headerRow = ['品名規格', '料號', '入庫日期', '出貨倉庫', '數量', '日期', '備註']
+    const dataRows = queryResults.map(r => [
+      r.inventory?.item_name ?? '—',
+      r.inventory?.part_number ?? '—',
+      fmtDate(r.inventory?.created_at),
+      r.destination || '—',
+      r.quantity,
+      fmtDate(r.date),
+      r.notes || '',
+    ])
+
+    const ws = XLSX.utils.aoa_to_sheet([[title], headerRow, ...dataRows])
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headerRow.length - 1 } }]
+    autoFitCols(ws, 1)
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '出貨明細')
+    XLSX.writeFile(wb, `出貨明細_${queryDate}.xlsx`)
+  }
+
+  const exportInventoryToExcel = async (date: string) => {
+    const warehouseName = activeWarehouse?.warehouse_name ?? ''
+    const formattedDate = date.replace(/-/g, '/')
+    const title = `${warehouseName} 倉     資料日期時間：${formattedDate}`
+
+    // 撈當天出貨明細
+    const nextDay = new Date(date)
+    nextDay.setDate(nextDay.getDate() + 1)
+    const nextDayStr = nextDay.toISOString().split('T')[0]
+    const { data: histData } = await supabase
+      .from('history')
+      .select('item_id, destination, quantity, date, notes')
+      .in('item_id', items.map(i => i.item_id))
+      .gte('date', date)
+      .lt('date', nextDayStr)
+      .order('date', { ascending: true })
+
+    const histByItem: Record<string, { item_id: string; destination: string; quantity: number; date: string; notes: string }[]> = {}
+    histData?.forEach(h => {
+      if (!histByItem[h.item_id]) histByItem[h.item_id] = []
+      histByItem[h.item_id].push(h)
+    })
+
+    const headerRow = ['倉庫標籤', '料號', '品名規格', '入庫日期', '製造日期', '每棧箱數', '文件數量', '拆櫃數量', '結存數量', '出庫所', '出庫數量', '出貨後結存', '備註']
+    const dataRows: (string | number)[][] = []
+
+    items.forEach(item => {
+      const shipments = histByItem[item.item_id] || []
+      const todayTotal = shipments.reduce((s, h) => s + h.quantity, 0)
+      const balanceBefore = item.current_quantity + todayTotal
+
+      dataRows.push([
+        item.warehouse_label || '—',
+        item.part_number || '—',
+        item.item_name,
+        fmtDate(item.created_at),
+        fmtDate(item.manufacture_date),
+        item.board_unit ?? '—',
+        item.paper ?? '—',
+        item.original_quantity,
+        balanceBefore,
+        '', '', '', '',
+      ])
+
+      let running = balanceBefore
+      shipments.forEach(s => {
+        running -= s.quantity
+        dataRows.push(['', '', '', '', '', '', '', '', '', s.destination || '—', s.quantity, running, s.notes || ''])
+      })
+    })
+
+    const ws = XLSX.utils.aoa_to_sheet([[title], headerRow, ...dataRows])
+    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headerRow.length - 1 } }]
+    autoFitCols(ws, 1)
+
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '庫存清單')
+    XLSX.writeFile(wb, `${warehouseName}_庫存清單_${date}.xlsx`)
+  }
+
+  const exportDetailToExcel = () => {
+    if (!detailItem) return
+
+    const infoRows = [
+      ['倉庫標籤', detailItem.warehouse_label || '—'],
+      ['料號', detailItem.part_number || '—'],
+      ['品名規格', detailItem.item_name],
+      ['入庫時間', fmtDate(detailItem.created_at)],
+      ['原始數量', detailItem.original_quantity],
+      ['製造日期', fmtDate(detailItem.manufacture_date)],
+      [],
+      ['出貨倉庫', '數量', '日期', '備註'],
+      ...detailHistory.map(h => [
+        h.destination || '—',
+        h.quantity,
+        fmtDate(h.date),
+        h.notes || '',
+      ]),
+    ]
+
+    const ws = XLSX.utils.aoa_to_sheet(infoRows)
+    autoFitCols(ws)
+    const wb = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(wb, ws, '出貨明細')
+    XLSX.writeFile(wb, `${detailItem.item_name}_出貨明細.xlsx`)
+  }
 
   const handleAddWarehouse = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -412,6 +548,13 @@ const InventoryMng: React.FC = () => {
               日期查詢
             </Button>
             <Button
+              className="btn-small btn-export"
+              onClick={() => { setExportDate(todayTW()); setIsExportModalOpen(true); }}
+              disabled={!activeWarehouseId || items.length === 0}
+            >
+              匯出 Excel
+            </Button>
+            <Button
               className="btn-small"
               onClick={() => setIsAddModalOpen(true)}
               disabled={!activeWarehouseId}
@@ -428,13 +571,13 @@ const InventoryMng: React.FC = () => {
               <tr>
                 <th>倉庫標籤</th>
                 <th>料號</th>
-                <th>品項</th>
+                <th>品名規格</th>
                 <th>入庫日期</th>
                 <th>製造日期</th>
                 <th>每棧箱數</th>
                 <th>文件數量</th>
                 <th>拆櫃數量</th>
-                <th>當前數量</th>
+                <th>結存數量</th>
                 <th>操作</th>
               </tr>
             </thead>
@@ -457,16 +600,8 @@ const InventoryMng: React.FC = () => {
                     <td>{item.warehouse_label || "—"}</td>
                     <td>{item.part_number || "—"}</td>
                     <td className="item-name-cell">{item.item_name}</td>
-                    <td>
-                      {new Date(item.created_at).toLocaleDateString("zh-TW")}
-                    </td>
-                    <td>
-                      {item.manufacture_date
-                        ? new Date(item.manufacture_date).toLocaleDateString(
-                            "zh-TW",
-                          )
-                        : "—"}
-                    </td>
+                    <td>{fmtDate(item.created_at)}</td>
+                    <td>{fmtDate(item.manufacture_date)}</td>
                     <td>{item.board_unit ?? "—"}箱/板</td>
                     <td>{item.paper ?? "—"}</td>
                     <td>{item.original_quantity}</td>
@@ -535,7 +670,7 @@ const InventoryMng: React.FC = () => {
             />
           </div>
           <div className="form-group">
-            <label>品項名稱</label>
+            <label>品名規格</label>
             <input
               type="text"
               placeholder="例如：牛後腿肉"
@@ -636,7 +771,7 @@ const InventoryMng: React.FC = () => {
             />
           </div>
           <div className="form-group">
-            <label>品項名稱</label>
+            <label>品名規格</label>
             <input
               type="text"
               required
@@ -773,6 +908,11 @@ const InventoryMng: React.FC = () => {
         title={`出貨明細 — ${detailItem?.item_name ?? ""}`}
       >
         <div className="detail-modal-content">
+          {!detailLoading && detailHistory.length > 0 && (
+            <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+              <Button className="btn-small btn-export" onClick={exportDetailToExcel}>匯出 Excel</Button>
+            </div>
+          )}
           {detailLoading ? (
             <p className="loading-cell">
               <span className="loading-spinner" />
@@ -795,7 +935,7 @@ const InventoryMng: React.FC = () => {
                   <tr key={h.id}>
                     <td>{h.destination || "—"}</td>
                     <td>{h.quantity}</td>
-                    <td>{new Date(h.date).toLocaleDateString("zh-TW")}</td>
+                    <td>{fmtDate(h.date)}</td>
                     <td>{h.notes || "—"}</td>
                     <td>
                       <button
@@ -827,9 +967,10 @@ const InventoryMng: React.FC = () => {
               value={queryDate}
               onChange={(e) => setQueryDate(e.target.value)}
             />
-            <Button className="btn-small" onClick={handleDateQuery}>
-              查詢
-            </Button>
+            <Button className="btn-small" onClick={handleDateQuery}>查詢</Button>
+            {queryResults.length > 0 && (
+              <Button className="btn-small btn-export" onClick={exportQueryToExcel}>匯出 Excel</Button>
+            )}
           </div>
 
           {queryLoading ? (
@@ -842,7 +983,7 @@ const InventoryMng: React.FC = () => {
             <table className="inventory-table" style={{ marginTop: "12px" }}>
               <thead>
                 <tr>
-                  <th>品項</th>
+                  <th>品名規格</th>
                   <th>料號</th>
                   <th>出貨倉庫</th>
                   <th>數量</th>
@@ -862,6 +1003,30 @@ const InventoryMng: React.FC = () => {
               </tbody>
             </table>
           )}
+        </div>
+      </Modal>
+
+      {/* 庫存匯出 Modal */}
+      <Modal
+        isOpen={isExportModalOpen}
+        onClose={() => setIsExportModalOpen(false)}
+        title="匯出庫存清單"
+      >
+        <div className="modal-form">
+          <div className="form-group">
+            <label>資料日期</label>
+            <input
+              type="date"
+              value={exportDate}
+              onChange={(e) => setExportDate(e.target.value)}
+            />
+          </div>
+          <Button
+            className="btn-full"
+            onClick={async () => { await exportInventoryToExcel(exportDate); setIsExportModalOpen(false); }}
+          >
+            確認匯出
+          </Button>
         </div>
       </Modal>
 

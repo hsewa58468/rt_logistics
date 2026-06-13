@@ -1,21 +1,32 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router-dom";
-import Navbar from "./components/Navbar";
-import Warehouse from "./pages/Warehouse";
-import InventoryMng from "./pages/InventoryMng";
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { AuthProvider } from './contexts/AuthContext'
+import ProtectedRoute from './components/ProtectedRoute'
+import Navbar from './components/Navbar'
+import Login from './pages/Login'
+import Warehouse from './pages/Warehouse'
+import InventoryMng from './pages/InventoryMng'
 
 function App() {
   return (
-    <Router>
-      <Navbar />
-      <div className="app-container">
+    <AuthProvider>
+      <Router>
         <Routes>
-          <Route path="/" element={<InventoryMng />} />
-          <Route path="/inventory" element={<InventoryMng />} />
-          <Route path="/path_plan" element={<Warehouse />} />
+          <Route path="/login" element={<Login />} />
+          <Route path="/*" element={
+            <ProtectedRoute>
+              <Navbar />
+              <div className="app-container">
+                <Routes>
+                  <Route path="/" element={<Warehouse />} />
+                  <Route path="/inventory" element={<InventoryMng />} />
+                </Routes>
+              </div>
+            </ProtectedRoute>
+          } />
         </Routes>
-      </div>
-    </Router>
-  );
+      </Router>
+    </AuthProvider>
+  )
 }
 
-export default App;
+export default App
