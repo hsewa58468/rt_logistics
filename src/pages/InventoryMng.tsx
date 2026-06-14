@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react'
-import * as XLSX from 'xlsx'
+import ExcelJS from 'exceljs'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
 import Button from '../components/Button'
+import { useAuth } from '../contexts/AuthContext'
 
 interface Warehouse {
   warehouse_id: string
@@ -44,10 +45,15 @@ interface QueryRecord {
 const todayTW = () => new Date().toLocaleDateString('sv', { timeZone: 'Asia/Taipei' })
 
 const InventoryMng: React.FC = () => {
+  const { isGuest } = useAuth()
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [activeWarehouseId, setActiveWarehouseId] = useState('')
   const [items, setItems] = useState<InventoryItem[]>([])
   const [loading, setLoading] = useState(false)
+  const [sortKey, setSortKey] = useState<
+    'warehouse_label' | 'part_number' | 'item_name' | 'created_at' | null
+  >(null)
+  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
   const [newItem, setNewItem] = useState({
@@ -78,7 +84,7 @@ const InventoryMng: React.FC = () => {
   const [shipTarget, setShipTarget] = useState<InventoryItem | null>(null)
   const [shipForm, setShipForm] = useState({
     destination: '',
-    quantity: 1,
+    quantity: 0,
     date: todayTW(),
     notes: '',
   })
@@ -244,7 +250,7 @@ const InventoryMng: React.FC = () => {
     setShipTarget(item)
     setShipForm({
       destination: '',
-      quantity: 1,
+      quantity: 0,
       date: todayTW(),
       notes: '',
     })
@@ -322,10 +328,15 @@ const InventoryMng: React.FC = () => {
     setQueryLoading(false)
   }
 
-  const autoFitCols = (ws: XLSX.WorkSheet, skipRows = 0) => {
-    const rows = (
-      XLSX.utils.sheet_to_json<(string | number)[]>(ws, { header: 1 }) as (string | number)[][]
-    ).slice(skipRows)
+  const thinBorder: Partial<ExcelJS.Borders> = {
+    top: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+    left: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+    bottom: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+    right: { style: 'thin', color: { argb: 'FFAAAAAA' } },
+  }
+
+  const applySheetStyles = (ws: ExcelJS.Worksheet, rows: (string | number)[][], skipBorderRows = 0) => {
+    // auto column width
     const widths: number[] = []
     rows.forEach((row) => {
       row.forEach((cell, i) => {
@@ -333,7 +344,29 @@ const InventoryMng: React.FC = () => {
         widths[i] = Math.max(widths[i] ?? 0, len)
       })
     })
-    ws['!cols'] = widths.map((w) => ({ wch: w + 2 }))
+    ws.columns = widths.map((w) => ({ width: w + 2 }))
+
+    // borders & alignment on data rows
+    ws.eachRow((row, rowNum) => {
+      if (rowNum <= skipBorderRows) return
+      row.eachCell({ includeEmpty: true }, (cell) => {
+        cell.border = thinBorder
+        cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true }
+      })
+    })
+  }
+
+  const downloadWorkbook = async (wb: ExcelJS.Workbook, filename: string) => {
+    const buffer = await wb.xlsx.writeBuffer()
+    const blob = new Blob([buffer], {
+      type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = filename
+    a.click()
+    URL.revokeObjectURL(url)
   }
 
   const fmtDate = (dateStr: string | null | undefined) => {
@@ -341,7 +374,7 @@ const InventoryMng: React.FC = () => {
     return new Date(dateStr).toLocaleDateString('zh-TW', { timeZone: 'Asia/Taipei' })
   }
 
-  const exportQueryToExcel = () => {
+  const exportQueryToExcel = async () => {
     const warehouseName = activeWarehouse?.warehouse_name ?? ''
     const formattedDate = queryDate.replace(/-/g, '/')
     const title = `${warehouseName} 庫 ${formattedDate} 出貨明細`
@@ -357,13 +390,15 @@ const InventoryMng: React.FC = () => {
       r.notes || '',
     ])
 
-    const ws = XLSX.utils.aoa_to_sheet([[title], headerRow, ...dataRows])
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headerRow.length - 1 } }]
-    autoFitCols(ws, 1)
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('出貨明細')
+    ws.addRow([title])
+    ws.mergeCells(1, 1, 1, headerRow.length)
+    ws.addRow(headerRow)
+    dataRows.forEach((r) => ws.addRow(r))
+    applySheetStyles(ws, [headerRow, ...dataRows], 1)
 
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, '出貨明細')
-    XLSX.writeFile(wb, `出貨明細_${queryDate}.xlsx`)
+    await downloadWorkbook(wb, `出貨明細_${queryDate}.xlsx`)
   }
 
   const exportInventoryToExcel = async (date: string) => {
@@ -411,11 +446,15 @@ const InventoryMng: React.FC = () => {
       '備註',
     ]
     const dataRows: (string | number)[][] = []
+    let totalBalanceBefore = 0
+    let totalShipments = 0
 
     items.forEach((item) => {
       const shipments = histByItem[item.item_id] || []
       const todayTotal = shipments.reduce((s, h) => s + h.quantity, 0)
       const balanceBefore = item.current_quantity + todayTotal
+      totalBalanceBefore += balanceBefore
+      totalShipments += todayTotal
 
       dataRows.push([
         item.warehouse_label || '—',
@@ -454,19 +493,28 @@ const InventoryMng: React.FC = () => {
       })
     })
 
-    const ws = XLSX.utils.aoa_to_sheet([[title], headerRow, ...dataRows])
-    ws['!merges'] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: headerRow.length - 1 } }]
-    autoFitCols(ws, 1)
+    const totalFinalBalance = totalBalanceBefore - totalShipments
+    const summaryRow: (string | number)[] = [
+      '合計', '', '', '', '', '', '', '',
+      totalBalanceBefore, '', totalShipments, totalFinalBalance, '',
+    ]
 
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, '庫存清單')
-    XLSX.writeFile(wb, `${warehouseName}_庫存清單_${date}.xlsx`)
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('庫存清單')
+    ws.addRow([title])
+    ws.mergeCells(1, 1, 1, headerRow.length)
+    ws.addRow(headerRow)
+    dataRows.forEach((r) => ws.addRow(r))
+    ws.addRow(summaryRow)
+    applySheetStyles(ws, [headerRow, ...dataRows, summaryRow], 1)
+
+    await downloadWorkbook(wb, `${warehouseName}_庫存清單_${date}.xlsx`)
   }
 
-  const exportDetailToExcel = () => {
+  const exportDetailToExcel = async () => {
     if (!detailItem) return
 
-    const infoRows = [
+    const infoRows: (string | number)[][] = [
       ['倉庫標籤', detailItem.warehouse_label || '—'],
       ['料號', detailItem.part_number || '—'],
       ['品名規格', detailItem.item_name],
@@ -483,11 +531,12 @@ const InventoryMng: React.FC = () => {
       ]),
     ]
 
-    const ws = XLSX.utils.aoa_to_sheet(infoRows)
-    autoFitCols(ws)
-    const wb = XLSX.utils.book_new()
-    XLSX.utils.book_append_sheet(wb, ws, '出貨明細')
-    XLSX.writeFile(wb, `${detailItem.item_name}_出貨明細.xlsx`)
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('出貨明細')
+    infoRows.forEach((r) => ws.addRow(r))
+    applySheetStyles(ws, infoRows)
+
+    await downloadWorkbook(wb, `${detailItem.item_name}_出貨明細.xlsx`)
   }
 
   const handleAddWarehouse = async (e: React.FormEvent) => {
@@ -521,6 +570,29 @@ const InventoryMng: React.FC = () => {
 
   const activeWarehouse = warehouses.find((w) => w.warehouse_id === activeWarehouseId)
 
+  const handleSort = (key: typeof sortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'))
+    } else {
+      setSortKey(key)
+      setSortDir('asc')
+    }
+  }
+
+  const sortedItems = sortKey
+    ? [...items].sort((a, b) => {
+        const av = a[sortKey] ?? ''
+        const bv = b[sortKey] ?? ''
+        const cmp = String(av).localeCompare(String(bv), 'zh-TW', { numeric: true })
+        return sortDir === 'asc' ? cmp : -cmp
+      })
+    : items
+
+  const sortIcon = (key: typeof sortKey) => {
+    if (sortKey !== key) return <span className="sort-icon">⇅</span>
+    return <span className="sort-icon active">{sortDir === 'asc' ? '↑' : '↓'}</span>
+  }
+
   return (
     <div className="inventory-page">
       {/* 倉庫分頁 */}
@@ -545,9 +617,11 @@ const InventoryMng: React.FC = () => {
             </button> */}
           </div>
         ))}
-        <button className="tab-btn tab-add-btn" onClick={() => setIsAddWarehouseOpen(true)}>
-          + 新增倉庫
-        </button>
+        {!isGuest && (
+          <button className="tab-btn tab-add-btn" onClick={() => setIsAddWarehouseOpen(true)}>
+            + 新增倉庫
+          </button>
+        )}
       </div>
 
       {/* 分頁內容區 */}
@@ -569,13 +643,15 @@ const InventoryMng: React.FC = () => {
             >
               匯出 Excel
             </Button>
-            <Button
-              className="btn-small"
-              onClick={() => setIsAddModalOpen(true)}
-              disabled={!activeWarehouseId}
-            >
-              + 新增
-            </Button>
+            {!isGuest && (
+              <Button
+                className="btn-small"
+                onClick={() => setIsAddModalOpen(true)}
+                disabled={!activeWarehouseId}
+              >
+                + 新增
+              </Button>
+            )}
           </div>
         </div>
 
@@ -584,16 +660,24 @@ const InventoryMng: React.FC = () => {
           <table className="inventory-table">
             <thead>
               <tr>
-                <th>倉庫標籤</th>
-                <th>料號</th>
-                <th>品名規格</th>
-                <th>入庫日期</th>
+                <th className="th-sortable" onClick={() => handleSort('warehouse_label')}>
+                  倉庫標籤{sortIcon('warehouse_label')}
+                </th>
+                <th className="th-sortable" onClick={() => handleSort('part_number')}>
+                  料號{sortIcon('part_number')}
+                </th>
+                <th className="th-sortable" onClick={() => handleSort('item_name')}>
+                  品名規格{sortIcon('item_name')}
+                </th>
+                <th className="th-sortable" onClick={() => handleSort('created_at')}>
+                  入庫日期{sortIcon('created_at')}
+                </th>
                 <th>製造日期</th>
                 <th>每棧箱數</th>
                 <th>文件數量</th>
                 <th>拆櫃數量</th>
                 <th>結存數量</th>
-                <th>操作</th>
+                {!isGuest && <th>操作</th>}
               </tr>
             </thead>
             <tbody>
@@ -610,7 +694,7 @@ const InventoryMng: React.FC = () => {
                   </td>
                 </tr>
               ) : (
-                items.map((item) => (
+                sortedItems.map((item) => (
                   <tr key={item.item_id}>
                     <td>{item.warehouse_label || '—'}</td>
                     <td>{item.part_number || '—'}</td>
@@ -625,17 +709,19 @@ const InventoryMng: React.FC = () => {
                         {item.current_quantity}
                       </span>
                     </td>
-                    <td className="action-cell">
-                      <button className="btn-ship" onClick={() => openShipModal(item)}>
-                        出貨
-                      </button>
-                      <button className="btn-detail" onClick={() => handleOpenDetail(item)}>
-                        明細
-                      </button>
-                      <button className="btn-edit" onClick={() => openEditModal(item)}>
-                        編輯
-                      </button>
-                    </td>
+                    {!isGuest && (
+                      <td className="action-cell">
+                        <button className="btn-ship" onClick={() => openShipModal(item)}>
+                          出貨
+                        </button>
+                        <button className="btn-detail" onClick={() => handleOpenDetail(item)}>
+                          明細
+                        </button>
+                        <button className="btn-edit" onClick={() => openEditModal(item)}>
+                          編輯
+                        </button>
+                      </td>
+                    )}
                   </tr>
                 ))
               )}
@@ -647,83 +733,86 @@ const InventoryMng: React.FC = () => {
       {/* 新增品項 Modal */}
       <Modal isOpen={isAddModalOpen} onClose={() => setIsAddModalOpen(false)} title="新增庫存品項">
         <form className="modal-form" onSubmit={handleAddItem}>
-          <div className="form-group">
-            <label>倉庫標籤</label>
-            <input
-              type="text"
-              placeholder="例如：A-01"
-              value={newItem.warehouse_label}
-              onChange={(e) => setNewItem((p) => ({ ...p, warehouse_label: e.target.value }))}
-            />
+          <div className="form-row-half">
+            <div className="form-group">
+              <label>倉庫標籤</label>
+              <input
+                type="text"
+                placeholder="例如：A-01"
+                value={newItem.warehouse_label}
+                onChange={(e) => setNewItem((p) => ({ ...p, warehouse_label: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>料號</label>
+              <input
+                type="text"
+                placeholder="例如：SKU-001"
+                value={newItem.part_number}
+                onChange={(e) => setNewItem((p) => ({ ...p, part_number: e.target.value }))}
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label>料號</label>
-            <input
-              type="text"
-              placeholder="例如：SKU-001"
-              value={newItem.part_number}
-              onChange={(e) => setNewItem((p) => ({ ...p, part_number: e.target.value }))}
-            />
+          <div className="form-row-half">
+            <div className="form-group">
+              <label>品名規格</label>
+              <input
+                type="text"
+                placeholder="例如：牛後腿肉"
+                required
+                value={newItem.item_name}
+                onChange={(e) => setNewItem((p) => ({ ...p, item_name: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>數量</label>
+              <input
+                type="number"
+                min={0}
+                value={newItem.original_quantity}
+                onChange={(e) => setNewItem((p) => ({ ...p, original_quantity: +e.target.value }))}
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label>品名規格</label>
-            <input
-              type="text"
-              placeholder="例如：牛後腿肉"
-              required
-              value={newItem.item_name}
-              onChange={(e) => setNewItem((p) => ({ ...p, item_name: e.target.value }))}
-            />
+          <div className="form-row-half">
+            <div className="form-group">
+              <label>入庫日期</label>
+              <input
+                type="date"
+                required
+                value={newItem.created_at}
+                onChange={(e) => setNewItem((p) => ({ ...p, created_at: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>製造日期</label>
+              <input
+                type="date"
+                value={newItem.manufacture_date}
+                onChange={(e) => setNewItem((p) => ({ ...p, manufacture_date: e.target.value }))}
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label>數量</label>
-            <input
-              type="number"
-              min={0}
-              value={newItem.original_quantity}
-              onChange={(e) =>
-                setNewItem((p) => ({
-                  ...p,
-                  original_quantity: +e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className="form-group">
-            <label>入庫日期</label>
-            <input
-              type="date"
-              required
-              value={newItem.created_at}
-              onChange={(e) => setNewItem((p) => ({ ...p, created_at: e.target.value }))}
-            />
-          </div>
-          <div className="form-group">
-            <label>製造日期</label>
-            <input
-              type="date"
-              value={newItem.manufacture_date}
-              onChange={(e) => setNewItem((p) => ({ ...p, manufacture_date: e.target.value }))}
-            />
-          </div>
-          <div className="form-group">
-            <label>每棧箱數</label>
-            <input
-              type="text"
-              placeholder="選填"
-              value={newItem.board_unit}
-              onChange={(e) => setNewItem((p) => ({ ...p, board_unit: e.target.value }))}
-            />
-          </div>
-          <div className="form-group">
-            <label>文件數量</label>
-            <input
-              type="number"
-              min={0}
-              placeholder="選填"
-              value={newItem.paper || ''}
-              onChange={(e) => setNewItem((p) => ({ ...p, paper: +e.target.value || 0 }))}
-            />
+          <div className="form-row-half">
+            <div className="form-group">
+              <label>每棧箱數</label>
+              <input
+                type="text"
+                placeholder="選填"
+                value={newItem.board_unit}
+                onChange={(e) => setNewItem((p) => ({ ...p, board_unit: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>文件數量</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="選填"
+                value={newItem.paper || ''}
+                onChange={(e) => setNewItem((p) => ({ ...p, paper: +e.target.value || 0 }))}
+              />
+            </div>
           </div>
           <Button className="btn-full">確認新增</Button>
         </form>
@@ -736,79 +825,82 @@ const InventoryMng: React.FC = () => {
         title="編輯庫存品項"
       >
         <form className="modal-form" onSubmit={handleEditItem}>
-          <div className="form-group">
-            <label>倉庫標籤</label>
-            <input
-              type="text"
-              value={editForm.warehouse_label}
-              onChange={(e) => setEditForm((p) => ({ ...p, warehouse_label: e.target.value }))}
-            />
+          <div className="form-row-half">
+            <div className="form-group">
+              <label>倉庫標籤</label>
+              <input
+                type="text"
+                value={editForm.warehouse_label}
+                onChange={(e) => setEditForm((p) => ({ ...p, warehouse_label: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>料號</label>
+              <input
+                type="text"
+                value={editForm.part_number}
+                onChange={(e) => setEditForm((p) => ({ ...p, part_number: e.target.value }))}
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label>料號</label>
-            <input
-              type="text"
-              value={editForm.part_number}
-              onChange={(e) => setEditForm((p) => ({ ...p, part_number: e.target.value }))}
-            />
+          <div className="form-row-half">
+            <div className="form-group">
+              <label>品名規格</label>
+              <input
+                type="text"
+                required
+                value={editForm.item_name}
+                onChange={(e) => setEditForm((p) => ({ ...p, item_name: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>數量</label>
+              <input
+                type="number"
+                min={0}
+                value={editForm.original_quantity}
+                onChange={(e) => setEditForm((p) => ({ ...p, original_quantity: +e.target.value }))}
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label>品名規格</label>
-            <input
-              type="text"
-              required
-              value={editForm.item_name}
-              onChange={(e) => setEditForm((p) => ({ ...p, item_name: e.target.value }))}
-            />
+          <div className="form-row-half">
+            <div className="form-group">
+              <label>入庫時間</label>
+              <input
+                type="date"
+                value={editForm.created_at}
+                onChange={(e) => setEditForm((p) => ({ ...p, created_at: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>製造日期</label>
+              <input
+                type="date"
+                value={editForm.manufacture_date}
+                onChange={(e) => setEditForm((p) => ({ ...p, manufacture_date: e.target.value }))}
+              />
+            </div>
           </div>
-          <div className="form-group">
-            <label>數量</label>
-            <input
-              type="number"
-              min={0}
-              value={editForm.original_quantity}
-              onChange={(e) =>
-                setEditForm((p) => ({
-                  ...p,
-                  original_quantity: +e.target.value,
-                }))
-              }
-            />
-          </div>
-          <div className="form-group">
-            <label>入庫時間</label>
-            <input
-              type="date"
-              value={editForm.created_at}
-              onChange={(e) => setEditForm((p) => ({ ...p, created_at: e.target.value }))}
-            />
-          </div>
-          <div className="form-group">
-            <label>製造日期</label>
-            <input
-              type="date"
-              value={editForm.manufacture_date}
-              onChange={(e) => setEditForm((p) => ({ ...p, manufacture_date: e.target.value }))}
-            />
-          </div>
-          <div className="form-group">
-            <label>每棧箱數</label>
-            <input
-              type="text"
-              placeholder="選填"
-              value={editForm.board_unit}
-              onChange={(e) => setEditForm((p) => ({ ...p, board_unit: e.target.value }))}
-            />
-          </div>
-          <div className="form-group">
-            <label>文件數量</label>
-            <input
-              type="number"
-              min={0}
-              placeholder="選填"
-              value={editForm.paper || ''}
-              onChange={(e) => setEditForm((p) => ({ ...p, paper: +e.target.value || 0 }))}
-            />
+          <div className="form-row-half">
+            <div className="form-group">
+              <label>每棧箱數</label>
+              <input
+                type="text"
+                placeholder="選填"
+                value={editForm.board_unit}
+                onChange={(e) => setEditForm((p) => ({ ...p, board_unit: e.target.value }))}
+              />
+            </div>
+            <div className="form-group">
+              <label>文件數量</label>
+              <input
+                type="number"
+                min={0}
+                placeholder="選填"
+                value={editForm.paper || ''}
+                onChange={(e) => setEditForm((p) => ({ ...p, paper: +e.target.value || 0 }))}
+              />
+            </div>
           </div>
           <Button className="btn-full">確認修改</Button>
           <button type="button" className="btn-delete-item" onClick={handleDeleteItem}>
@@ -838,7 +930,7 @@ const InventoryMng: React.FC = () => {
             <label>數量（庫存：{shipTarget?.current_quantity ?? 0}）</label>
             <input
               type="number"
-              min={1}
+              min={0}
               max={shipTarget?.current_quantity ?? 0}
               required
               value={shipForm.quantity}

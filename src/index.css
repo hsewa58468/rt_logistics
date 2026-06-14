@@ -715,6 +715,12 @@ p {
   gap: 1rem;
 }
 
+.form-row-half {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
 .form-group {
   display: flex;
   flex-direction: column;
@@ -2146,6 +2152,26 @@ p {
   border-bottom: 1px solid var(--glass-border);
 }
 
+.th-sortable {
+  cursor: pointer;
+  user-select: none;
+}
+
+.th-sortable:hover {
+  color: var(--text-main);
+}
+
+.sort-icon {
+  margin-left: 4px;
+  font-size: 0.75rem;
+  opacity: 0.4;
+}
+
+.sort-icon.active {
+  opacity: 1;
+  color: var(--accent-primary);
+}
+
 .inventory-table td {
   padding: 12px 16px;
   border-bottom: 1px solid rgba(255, 255, 255, 0.04);
@@ -2451,4 +2477,42 @@ p {
     min-width: unset;
     width: 100%;
   }
+
+  .inventory-table-wrapper {
+    max-height: calc(100vh - 300px);
+  }
+}
+
+/* ========================================
+   訪客模式
+   ======================================== */
+
+.nav-guest-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.12);
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  padding: 3px 10px;
+  border-radius: 6px;
+  white-space: nowrap;
+}
+
+.guest-btn {
+  width: 100%;
+  margin-top: 12px;
+  padding: 9px;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: transparent;
+  color: var(--text-muted);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.guest-btn:hover {
+  border-color: rgba(251, 191, 36, 0.4);
+  color: #fbbf24;
+  background: rgba(251, 191, 36, 0.06);
 }

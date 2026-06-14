@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
+import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import ProtectedRoute from './components/ProtectedRoute'
 import Navbar from './components/Navbar'
@@ -19,8 +19,9 @@ function App() {
                 <Navbar />
                 <div className="app-container">
                   <Routes>
-                    <Route path="/" element={<Warehouse />} />
+                    <Route path="/" element={<Navigate to="/inventory" replace />} />
                     <Route path="/inventory" element={<InventoryMng />} />
+                    <Route path="/warehouse" element={<Warehouse />} />
                   </Routes>
                 </div>
               </ProtectedRoute>

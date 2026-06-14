@@ -1,51 +1,90 @@
 import { useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 
 const Navbar = () => {
   const location = useLocation()
-  const { session, signOut } = useAuth()
+  const navigate = useNavigate()
+  const { session, isGuest, exitGuestMode, signOut } = useAuth()
   const [menuOpen, setMenuOpen] = useState(false)
 
   const close = () => setMenuOpen(false)
 
+  const handleExitGuest = () => {
+    exitGuestMode()
+    navigate('/login')
+    close()
+  }
+
   return (
     <nav className="navbar">
-      <div className="nav-brand">RT Logistics</div>
+      <div className="nav-brand">瑞騰倉庫管理系統</div>
 
       <div className="nav-links">
-        <Link to="/" className={location.pathname === "/path_plan" ? "active" : ""}>
+        <Link to="/" className={location.pathname === '/warehouse' ? 'active' : ''}>
           路線規劃
         </Link>
-        <Link to="/inventory" className={location.pathname === "/inventory" ? "active" : ""}>
+        <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>
           庫存管理
         </Link>
       </div>
 
-      {session && (
+      {isGuest ? (
         <div className="nav-user">
-          <span className="nav-email">{session.user.email}</span>
-          <button className="nav-logout-btn" onClick={signOut}>登出</button>
+          <span className="nav-guest-badge">訪客模式</span>
+          <button className="nav-logout-btn" onClick={handleExitGuest}>
+            離開
+          </button>
         </div>
+      ) : (
+        session && (
+          <div className="nav-user">
+            <span className="nav-email">{session.user.email}</span>
+            <button className="nav-logout-btn" onClick={signOut}>
+              登出
+            </button>
+          </div>
+        )
       )}
 
-      <button className="nav-hamburger" onClick={() => setMenuOpen(v => !v)} aria-label="選單">
+      <button className="nav-hamburger" onClick={() => setMenuOpen((v) => !v)} aria-label="選單">
         <span className={`hamburger-icon ${menuOpen ? 'open' : ''}`} />
       </button>
 
       {menuOpen && (
         <div className="nav-mobile-menu">
-          <Link to="/" className={location.pathname === "/path_plan" ? "active" : ""} onClick={close}>
+          <Link to="/" className={location.pathname === '/' ? 'active' : ''} onClick={close}>
             路線規劃
           </Link>
-          <Link to="/inventory" className={location.pathname === "/inventory" ? "active" : ""} onClick={close}>
+          <Link
+            to="/inventory"
+            className={location.pathname === '/inventory' ? 'active' : ''}
+            onClick={close}
+          >
             庫存管理
           </Link>
-          {session && (
+          {isGuest ? (
             <div className="nav-mobile-user">
-              <span className="nav-email">{session.user.email}</span>
-              <button className="nav-logout-btn" onClick={() => { signOut(); close() }}>登出</button>
+              <span className="nav-guest-badge">訪客模式</span>
+              <button className="nav-logout-btn" onClick={handleExitGuest}>
+                離開
+              </button>
             </div>
+          ) : (
+            session && (
+              <div className="nav-mobile-user">
+                <span className="nav-email">{session.user.email}</span>
+                <button
+                  className="nav-logout-btn"
+                  onClick={() => {
+                    signOut()
+                    close()
+                  }}
+                >
+                  登出
+                </button>
+              </div>
+            )
           )}
         </div>
       )}

@@ -1,10 +1,11 @@
 import { useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
 const Login = () => {
-  const { session } = useAuth()
+  const { session, enterGuestMode } = useAuth()
+  const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -28,7 +29,7 @@ const Login = () => {
   return (
     <div className="login-page">
       <div className="login-card">
-        <div className="login-brand">RT Logistics</div>
+        <div className="login-brand">瑞騰</div>
         <p className="login-subtitle">請登入以繼續</p>
 
         <form className="login-form" onSubmit={handleSubmit}>
@@ -64,6 +65,16 @@ const Login = () => {
             )}
           </button>
         </form>
+
+        <button
+          className="guest-btn"
+          onClick={() => {
+            enterGuestMode()
+            navigate('/')
+          }}
+        >
+          訪客瀏覽（僅供查看）
+        </button>
       </div>
     </div>
   )
