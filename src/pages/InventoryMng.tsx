@@ -1130,7 +1130,8 @@ const InventoryMng: React.FC = () => {
           ) : detailHistory.length === 0 ? (
             <p className="table-empty">尚無出貨紀錄</p>
           ) : (
-            <table className="inventory-table">
+            <div style={{ overflowX: 'auto' }}>
+            <table className="inventory-table" style={{ minWidth: '480px' }}>
               <thead>
                 <tr>
                   <th>出庫所</th>
@@ -1194,6 +1195,7 @@ const InventoryMng: React.FC = () => {
                 )}
               </tbody>
             </table>
+            </div>
           )}
         </div>
       </Modal>
