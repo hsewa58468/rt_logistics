@@ -45,7 +45,8 @@ interface QueryRecord {
 const todayTW = () => new Date().toLocaleDateString('sv', { timeZone: 'Asia/Taipei' })
 
 const InventoryMng: React.FC = () => {
-  const { isGuest } = useAuth()
+  const { isSuper } = useAuth()
+
   const [warehouses, setWarehouses] = useState<Warehouse[]>([])
   const [activeWarehouseId, setActiveWarehouseId] = useState('')
   const [items, setItems] = useState<InventoryItem[]>([])
@@ -93,6 +94,13 @@ const InventoryMng: React.FC = () => {
   const [detailItem, setDetailItem] = useState<InventoryItem | null>(null)
   const [detailHistory, setDetailHistory] = useState<HistoryRecord[]>([])
   const [detailLoading, setDetailLoading] = useState(false)
+  const [editingHistoryId, setEditingHistoryId] = useState<string | null>(null)
+  const [editHistoryForm, setEditHistoryForm] = useState({
+    destination: '',
+    quantity: 0,
+    date: '',
+    notes: '',
+  })
 
   // 倉庫管理
   const [isAddWarehouseOpen, setIsAddWarehouseOpen] = useState(false)
@@ -246,6 +254,33 @@ const InventoryMng: React.FC = () => {
     if (detailItem) fetchItems(activeWarehouseId)
   }
 
+  const openEditHistory = (h: HistoryRecord) => {
+    setEditingHistoryId(h.id)
+    setEditHistoryForm({
+      destination: h.destination,
+      quantity: h.quantity,
+      date: h.date,
+      notes: h.notes,
+    })
+  }
+
+  const handleSaveHistoryEdit = async () => {
+    if (!editingHistoryId) return
+    const { error } = await supabase
+      .from('history')
+      .update({ notes: editHistoryForm.notes })
+      .eq('id', editingHistoryId)
+    if (error) {
+      console.error(error)
+      return
+    }
+    setDetailHistory((prev) =>
+      prev.map((h) => (h.id === editingHistoryId ? { ...h, ...editHistoryForm } : h))
+    )
+    setEditingHistoryId(null)
+    if (detailItem) fetchItems(activeWarehouseId)
+  }
+
   const openShipModal = (item: InventoryItem) => {
     setShipTarget(item)
     setShipForm({
@@ -335,7 +370,11 @@ const InventoryMng: React.FC = () => {
     right: { style: 'thin', color: { argb: 'FFAAAAAA' } },
   }
 
-  const applySheetStyles = (ws: ExcelJS.Worksheet, rows: (string | number)[][], skipBorderRows = 0) => {
+  const applySheetStyles = (
+    ws: ExcelJS.Worksheet,
+    rows: (string | number)[][],
+    skipBorderRows = 0
+  ) => {
     // auto column width
     const widths: number[] = []
     rows.forEach((row) => {
@@ -495,8 +534,19 @@ const InventoryMng: React.FC = () => {
 
     const totalFinalBalance = totalBalanceBefore - totalShipments
     const summaryRow: (string | number)[] = [
-      '合計', '', '', '', '', '', '', '',
-      totalBalanceBefore, '', totalShipments, totalFinalBalance, '',
+      '合計',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      '',
+      totalBalanceBefore,
+      '',
+      totalShipments,
+      totalFinalBalance,
+      '',
     ]
 
     const wb = new ExcelJS.Workbook()
@@ -539,6 +589,88 @@ const InventoryMng: React.FC = () => {
     await downloadWorkbook(wb, `${detailItem.item_name}_出貨明細.xlsx`)
   }
 
+  const exportAllWarehousesToExcel = async () => {
+    const date = todayTW()
+    const formattedDate = date.replace(/-/g, '/')
+    const wb = new ExcelJS.Workbook()
+    const ws = wb.addWorksheet('全庫庫存')
+    const headerRow = [
+      '倉庫標籤',
+      '料號',
+      '品名規格',
+      '入庫日期',
+      '製造日期',
+      '每棧箱數',
+      '文件數量',
+      '拆櫃數量',
+      '結存數量',
+    ]
+    const allDataRows: (string | number)[][] = []
+
+    for (const warehouse of warehouses) {
+      const { data: invData } = await supabase
+        .from('inventory')
+        .select('*')
+        .eq('warehouse_id', warehouse.warehouse_id)
+        .order('created_at', { ascending: false })
+
+      const warehouseItems = invData || []
+      if (warehouseItems.length === 0) continue
+
+      const { data: histData } = await supabase
+        .from('history')
+        .select('item_id, quantity')
+        .in(
+          'item_id',
+          warehouseItems.map((i) => i.item_id)
+        )
+
+      const shippedMap: Record<string, number> = {}
+      histData?.forEach((h) => {
+        shippedMap[h.item_id] = (shippedMap[h.item_id] || 0) + h.quantity
+      })
+
+      const itemsWithQty = warehouseItems
+        .map((i) => ({
+          ...i,
+          current_quantity: i.original_quantity - (shippedMap[i.item_id] || 0),
+        }))
+        .sort((a, b) => (a.current_quantity <= 0 ? 1 : 0) - (b.current_quantity <= 0 ? 1 : 0))
+
+      // 倉庫大標題列
+      const titleRow = ws.addRow([`${warehouse.warehouse_name} 倉     資料日期：${formattedDate}`])
+      ws.mergeCells(titleRow.number, 1, titleRow.number, headerRow.length)
+      titleRow.getCell(1).font = { bold: true, size: 14 }
+      titleRow.getCell(1).alignment = { horizontal: 'center', vertical: 'middle' }
+      titleRow.getCell(1).fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'bbbbbb' } }
+
+      // 表頭
+      ws.addRow(headerRow)
+
+      // 資料列
+      const dataRows: (string | number)[][] = itemsWithQty.map((item) => [
+        item.warehouse_label || '—',
+        item.part_number || '—',
+        item.item_name,
+        fmtDate(item.created_at),
+        fmtDate(item.manufacture_date),
+        item.board_unit ?? '—',
+        item.paper ?? '—',
+        item.original_quantity,
+        item.current_quantity,
+      ])
+      dataRows.forEach((r) => ws.addRow(r))
+      allDataRows.push(headerRow, ...dataRows)
+
+      // 空行分隔
+      ws.addRow([])
+    }
+
+    applySheetStyles(ws, allDataRows)
+
+    await downloadWorkbook(wb, `全庫庫存_${date}.xlsx`)
+  }
+
   const handleAddWarehouse = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newWarehouseName.trim()) return
@@ -579,14 +711,21 @@ const InventoryMng: React.FC = () => {
     }
   }
 
-  const sortedItems = sortKey
-    ? [...items].sort((a, b) => {
-        const av = a[sortKey] ?? ''
-        const bv = b[sortKey] ?? ''
-        const cmp = String(av).localeCompare(String(bv), 'zh-TW', { numeric: true })
-        return sortDir === 'asc' ? cmp : -cmp
-      })
-    : items
+  const sortedItems = (() => {
+    const base = sortKey
+      ? [...items].sort((a, b) => {
+          const av = a[sortKey] ?? ''
+          const bv = b[sortKey] ?? ''
+          const cmp = String(av).localeCompare(String(bv), 'zh-TW', { numeric: true })
+          return sortDir === 'asc' ? cmp : -cmp
+        })
+      : [...items]
+    return base.sort((a, b) => {
+      const aZero = a.current_quantity <= 0 ? 1 : 0
+      const bZero = b.current_quantity <= 0 ? 1 : 0
+      return aZero - bZero
+    })
+  })()
 
   const sortIcon = (key: typeof sortKey) => {
     if (sortKey !== key) return <span className="sort-icon">⇅</span>
@@ -595,6 +734,9 @@ const InventoryMng: React.FC = () => {
 
   return (
     <div className="inventory-page">
+      <button className="btn-export-all" onClick={exportAllWarehousesToExcel}>
+        全庫匯出
+      </button>
       {/* 倉庫分頁 */}
       <div className="warehouse-tabs">
         {warehouses.map((w) => (
@@ -617,7 +759,7 @@ const InventoryMng: React.FC = () => {
             </button> */}
           </div>
         ))}
-        {!isGuest && (
+        {isSuper && (
           <button className="tab-btn tab-add-btn" onClick={() => setIsAddWarehouseOpen(true)}>
             + 新增倉庫
           </button>
@@ -643,7 +785,7 @@ const InventoryMng: React.FC = () => {
             >
               匯出 Excel
             </Button>
-            {!isGuest && (
+            {isSuper && (
               <Button
                 className="btn-small"
                 onClick={() => setIsAddModalOpen(true)}
@@ -677,7 +819,7 @@ const InventoryMng: React.FC = () => {
                 <th>文件數量</th>
                 <th>拆櫃數量</th>
                 <th>結存數量</th>
-                {!isGuest && <th>操作</th>}
+                <th>操作</th>
               </tr>
             </thead>
             <tbody>
@@ -709,19 +851,27 @@ const InventoryMng: React.FC = () => {
                         {item.current_quantity}
                       </span>
                     </td>
-                    {!isGuest && (
-                      <td className="action-cell">
-                        <button className="btn-ship" onClick={() => openShipModal(item)}>
-                          出貨
-                        </button>
-                        <button className="btn-detail" onClick={() => handleOpenDetail(item)}>
-                          明細
-                        </button>
-                        <button className="btn-edit" onClick={() => openEditModal(item)}>
-                          編輯
-                        </button>
-                      </td>
-                    )}
+                    <td className="action-cell">
+                      <button className="btn-detail" onClick={() => handleOpenDetail(item)}>
+                        明細
+                      </button>
+                      {isSuper && (
+                        <>
+                          <button className="btn-ship" onClick={() => openShipModal(item)}>
+                            出貨
+                          </button>
+                          <button
+                            className="btn-edit"
+                            onClick={() => {
+                              if (window.confirm(`確定要編輯「${item.item_name}」嗎？`))
+                                openEditModal(item)
+                            }}
+                          >
+                            編輯
+                          </button>
+                        </>
+                      )}
+                    </td>
                   </tr>
                 ))
               )}
@@ -991,22 +1141,57 @@ const InventoryMng: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {detailHistory.map((h) => (
-                  <tr key={h.id}>
-                    <td>{h.destination || '—'}</td>
-                    <td>{h.quantity}</td>
-                    <td>{fmtDate(h.date)}</td>
-                    <td>{h.notes || '—'}</td>
-                    <td>
-                      <button
-                        className="btn-delete-history"
-                        onClick={() => handleDeleteHistory(h.id)}
-                      >
-                        刪除
-                      </button>
-                    </td>
-                  </tr>
-                ))}
+                {detailHistory.map((h) =>
+                  editingHistoryId === h.id ? (
+                    <tr key={h.id}>
+                      <td>{h.destination || '—'}</td>
+                      <td>{h.quantity}</td>
+                      <td>{fmtDate(h.date)}</td>
+                      <td>
+                        <input
+                          className="inline-edit-input"
+                          value={editHistoryForm.notes}
+                          onChange={(e) =>
+                            setEditHistoryForm((f) => ({ ...f, notes: e.target.value }))
+                          }
+                        />
+                      </td>
+                      <td style={{ display: 'flex', gap: '6px' }}>
+                        <button className="btn-save-history" onClick={handleSaveHistoryEdit}>
+                          儲存
+                        </button>
+                        <button
+                          className="btn-delete-history"
+                          onClick={() => setEditingHistoryId(null)}
+                        >
+                          取消
+                        </button>
+                      </td>
+                    </tr>
+                  ) : (
+                    <tr key={h.id}>
+                      <td>{h.destination || '—'}</td>
+                      <td>{h.quantity}</td>
+                      <td>{fmtDate(h.date)}</td>
+                      <td>{h.notes || '—'}</td>
+                      <td>
+                        {isSuper && (
+                          <div style={{ display: 'flex', gap: '6px' }}>
+                            <button className="btn-edit-history" onClick={() => openEditHistory(h)}>
+                              編輯
+                            </button>
+                            <button
+                              className="btn-delete-history"
+                              onClick={() => handleDeleteHistory(h.id)}
+                            >
+                              刪除
+                            </button>
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  )
+                )}
               </tbody>
             </table>
           )}

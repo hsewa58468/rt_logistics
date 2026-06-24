@@ -1,11 +1,10 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate } from 'react-router-dom'
 import { supabase } from '../lib/supabase'
 import { useAuth } from '../contexts/AuthContext'
 
 const Login = () => {
-  const { session, enterGuestMode } = useAuth()
-  const navigate = useNavigate()
+  const { session } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
@@ -66,15 +65,6 @@ const Login = () => {
           </button>
         </form>
 
-        <button
-          className="guest-btn"
-          onClick={() => {
-            enterGuestMode()
-            navigate('/')
-          }}
-        >
-          訪客瀏覽（僅供查看）
-        </button>
       </div>
     </div>
   )

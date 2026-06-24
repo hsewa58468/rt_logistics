@@ -6,6 +6,7 @@ interface AuthContextType {
   session: Session | null
   loading: boolean
   isGuest: boolean
+  isSuper: boolean
   enterGuestMode: () => void
   exitGuestMode: () => void
   signOut: () => Promise<void>
@@ -15,6 +16,7 @@ const AuthContext = createContext<AuthContextType>({
   session: null,
   loading: true,
   isGuest: false,
+  isSuper: false,
   enterGuestMode: () => {},
   exitGuestMode: () => {},
   signOut: async () => {},
@@ -40,6 +42,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     return () => subscription.unsubscribe()
   }, [])
 
+  const isSuper = session?.user?.app_metadata?.role === 'super'
+
   const enterGuestMode = () => setIsGuest(true)
   const exitGuestMode = () => setIsGuest(false)
 
@@ -49,7 +53,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
 
   return (
     <AuthContext.Provider
-      value={{ session, loading, isGuest, enterGuestMode, exitGuestMode, signOut }}
+      value={{ session, loading, isGuest, isSuper, enterGuestMode, exitGuestMode, signOut }}
     >
       {children}
     </AuthContext.Provider>
