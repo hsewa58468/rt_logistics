@@ -54,8 +54,8 @@ body {
 }
 
 .app-container {
-  padding-top: calc(var(--nav-height) + 48px);
-  padding-bottom: 32px;
+  margin-top: calc(var(--nav-height) + 48px);
+  margin-bottom: 24px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -2095,7 +2095,6 @@ p {
 
 /* 分頁內容區 */
 .inventory-content {
-  margin-bottom: 20px;
   border: 1px solid var(--glass-border);
   border-radius: 0 8px 8px 8px;
   background: #141824;
@@ -2535,6 +2534,11 @@ p {
    ======================================== */
 
 @media (max-width: 768px) {
+  .btn-export,
+  .btn-export-all {
+    display: none !important;
+  }
+
   .nav-hamburger {
     display: flex;
   }
