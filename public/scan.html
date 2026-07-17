@@ -188,7 +188,10 @@
     </div>
     <div id="cameraWrap" style="display:none; margin-top:12px;">
       <div id="reader" style="width:100%; border-radius:6px; overflow:hidden; border:1px solid var(--border);"></div>
-      <div class="dim mono" id="cameraHint" style="font-size:11px; margin-top:6px; text-align:center;">將條碼置於框內，對齊後會自動辨識</div>
+      <div class="row-actions" style="margin-top:8px;">
+        <button class="btn" id="torchBtn" style="display:none;">🔦 開啟手電筒</button>
+      </div>
+      <div class="dim mono" id="cameraHint" style="font-size:11px; margin-top:6px; text-align:center;">將條碼「橫向」置於框內、盡量填滿寬度，距離約 10-15 公分，保持穩定不要手震</div>
     </div>
     <div id="readerFile" style="display:none"></div>
 
@@ -227,12 +230,98 @@
     </div>
   </div>
 
+  <div class="panel">
+    <h2 class="section-title">料號對照表管理</h2>
+    <div class="dim mono" id="dbStatusNote" style="font-size:11px; margin-bottom:10px;">尚未連線資料庫</div>
+    <div class="row-actions" style="margin-top:0;">
+      <input id="newCode" type="text" placeholder="料號，例如 4823" style="flex:1; min-width:120px; background:#0e1012; border:1px solid var(--border); border-radius:4px; color:var(--text); font-family:var(--mono); padding:8px 10px;">
+      <input id="newName" type="text" placeholder="品名，例如 澳洲 S 板腱" style="flex:2; min-width:160px; background:#0e1012; border:1px solid var(--border); border-radius:4px; color:var(--text); padding:8px 10px;">
+      <button class="btn primary" id="addCodeBtn">新增／更新</button>
+    </div>
+    <div style="margin-top:10px;">
+      <input id="codeSearchInput" type="text" placeholder="搜尋料號或品名…" style="width:100%; background:#0e1012; border:1px solid var(--border); border-radius:4px; color:var(--text); padding:8px 10px; font-family:var(--mono); font-size:13px;">
+    </div>
+    <table style="margin-top:10px;">
+      <thead><tr><th>料號</th><th>品名</th><th></th></tr></thead>
+      <tbody id="codeNamesBody"></tbody>
+    </table>
+    <div class="empty-hint" id="codeNamesEmpty" style="display:none;">尚無資料</div>
+    <div class="row-actions">
+      <button class="btn" id="exportCodesBtn">匯出對照表 JSON</button>
+      <button class="btn" id="importCodesBtn">匯入對照表 JSON</button>
+      <button class="btn primary" id="migrateBtn">將目前對照表整批寫入資料庫</button>
+      <input id="importCodesFile" type="file" accept="application/json,.json" style="display:none">
+    </div>
+    <div class="dim mono" style="font-size:11px; margin-top:8px; line-height:1.7;">
+      如果已在程式碼最上方設定好 Supabase，新增/刪除會直接同步到資料庫，所有人打開網頁都是同一份。<br>
+      若還沒設定資料庫：新增的料號只存在「這次分頁」，重新整理就會消失，可用「匯出對照表 JSON」下載後覆蓋伺服器上跟
+      index.html 同一層的 <span style="color:var(--amber)">code_names.json</span> 作為暫時的替代方案。
+    </div>
+  </div>
+
   <footer>條碼格式解析規則移植自舊版 SWIFT_PY_CA_AUS 秤重腳本 · 所有資料僅保存於本次瀏覽器分頁中</footer>
 </div>
 
 <script>
-// ---------- 品號對照表 ----------
-const CODE_NAMES = {
+// ---------- Supabase 資料庫設定 ----------
+// 建好 Supabase 專案後，把下面兩個值換成你自己的 Project URL 和 anon public key
+// （在 Supabase 後台 Settings → API 可以找到）。沒換之前，網頁會自動退回原本
+// 「只存在瀏覽器分頁 / 手動匯出入 JSON」的模式，不影響使用。
+const SUPABASE_URL = 'https://YOUR-PROJECT-REF.supabase.co';
+const SUPABASE_ANON_KEY = 'YOUR-ANON-PUBLIC-KEY';
+const CODE_NAMES_TABLE = 'code_names';
+const SUPABASE_ENABLED = !SUPABASE_URL.includes('YOUR-PROJECT-REF') && !SUPABASE_ANON_KEY.includes('YOUR-ANON-PUBLIC-KEY');
+
+async function dbFetch(path, options){
+  options = options || {};
+  const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+    ...options,
+    headers: {
+      'apikey': SUPABASE_ANON_KEY,
+      'Authorization': `Bearer ${SUPABASE_ANON_KEY}`,
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+  if(!res.ok){
+    const text = await res.text().catch(()=> '');
+    throw new Error(`HTTP ${res.status} ${text}`);
+  }
+  return res.status === 204 ? null : res.json();
+}
+
+async function loadCodeNamesFromDB(){
+  const rows = await dbFetch(`${CODE_NAMES_TABLE}?select=code,name&order=code`);
+  const map = {};
+  for(const r of rows) map[r.code] = r.name;
+  return map;
+}
+async function upsertCodeNameDB(code, name){
+  await dbFetch(CODE_NAMES_TABLE, {
+    method: 'POST',
+    headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify([{code, name}])
+  });
+}
+async function deleteCodeNameDB(code){
+  await dbFetch(`${CODE_NAMES_TABLE}?code=eq.${encodeURIComponent(code)}`, {
+    method: 'DELETE',
+    headers: { 'Prefer': 'return=minimal' }
+  });
+}
+async function bulkUpsertCodeNamesDB(map){
+  const rows = Object.entries(map).map(([code,name])=>({code,name}));
+  if(!rows.length) return 0;
+  await dbFetch(CODE_NAMES_TABLE, {
+    method: 'POST',
+    headers: { 'Prefer': 'resolution=merge-duplicates,return=minimal' },
+    body: JSON.stringify(rows)
+  });
+  return rows.length;
+}
+
+// ---------- 品號對照表（可在頁面中新增/匯入/匯出） ----------
+let CODE_NAMES = {
   '4823':'澳洲 S 板腱', '1324':'澳洲 A 板腱', '3932':'澳洲 F 腱', '6339':'澳洲 牛前後筋',
   '5420':'澳洲 PR 穀飼背肩', '4597':'加拿大 PR 背肩1*1', '4234':'加拿大 PR 背肩0*0',
   '7061':'加拿大 3A KARUBE', '10164':'美國 PR 背肩1*1', '19146':'美國 CRF 板腱',
@@ -260,8 +349,44 @@ function fmtWeight(numStr){
 }
 function ymd(a,b,c){ return a+b+c; }
 
+function tryDateSlashRule(data){
+  const slashCount = (data.match(/\//g) || []).length;
+  if(slashCount < 2) return null; // 沒有兩個斜線，不符合這個規則
+
+  const dateMatch = data.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if(!dateMatch) return null;
+
+  const before = data.slice(0, dateMatch.index);
+  const after = data.slice(dateMatch.index + dateMatch[0].length);
+
+  // 料號：日期前面最後一串數字
+  const codeMatch = before.match(/(\d+)[^\d]*$/);
+  if(!codeMatch) return null;
+  const codeNumber = codeMatch[1];
+
+  // 重量：日期後面第一個數字（含小數點）
+  const weightMatch = after.match(/(\d+(?:\.\d+)?)/);
+  if(!weightMatch) return null;
+  const weightKg = parseFloat(weightMatch[1]);
+  if(isNaN(weightKg)) return null;
+
+  const yyyy = dateMatch[1];
+  const mm = dateMatch[2].padStart(2,'0');
+  const dd = dateMatch[3].padStart(2,'0');
+  const date = ymd(yyyy, mm, dd);
+
+  return {codeNumber, weightKg, date, rule:'日期格式(YYYY/MM/DD)'};
+}
+
 function parseBarcode(raw){
   const data = raw.trim();
+
+  // 新規則：不論長度，只要字串中出現 YYYY/MM/DD 這種日期（兩個斜線），
+  // 就把日期前面最後一串數字當料號、日期後面第一串數字當重量，日期本身當生產日期。
+  // 這個規則優先於下面依長度判斷的舊格式，避免新格式的條碼被舊規則誤判。
+  const dateRule = tryDateSlashRule(data);
+  if(dateRule) return dateRule;
+
   const len = data.length;
   try{
     if(len === 46){
@@ -546,10 +671,14 @@ scanInput.addEventListener('keydown', (e)=>{
   }
 });
 document.addEventListener('click', (e)=>{
-  if(e.target.closest('button') || e.target.closest('textarea')) return;
+  const tag = e.target.tagName;
+  if(['BUTTON','INPUT','TEXTAREA','SELECT','A','LABEL'].includes(tag) || e.target.closest('button')) return;
   scanInput.focus();
 });
-window.addEventListener('load', ()=> scanInput.focus());
+window.addEventListener('load', ()=>{
+  scanInput.focus();
+  tryAutoLoadCodeNames();
+});
 
 document.getElementById('batchBtn').addEventListener('click', ()=>{
   const ta = document.getElementById('batchInput');
@@ -558,6 +687,136 @@ document.getElementById('batchBtn').addEventListener('click', ()=>{
     if(l.trim()) handleScan(l);
   }
   ta.value = '';
+});
+
+// ---------- 料號對照表管理 ----------
+function escapeHtml(s){
+  return String(s).replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderCodeNamesTable(filter){
+  filter = filter || '';
+  const tbody = document.getElementById('codeNamesBody');
+  tbody.innerHTML = '';
+  const f = filter.trim().toLowerCase();
+  const entries = Object.entries(CODE_NAMES)
+    .filter(([code,name]) => !f || code.toLowerCase().includes(f) || name.toLowerCase().includes(f))
+    .sort((a,b)=> a[0].localeCompare(b[0]));
+
+  for(const [code, name] of entries){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="mono">${escapeHtml(code)}</td>
+      <td>${escapeHtml(name)}</td>
+      <td style="text-align:right"><button class="del-btn" data-code="${escapeHtml(code)}" title="刪除">✕</button></td>`;
+    tbody.appendChild(tr);
+  }
+  document.getElementById('codeNamesEmpty').style.display = entries.length ? 'none' : 'block';
+
+  tbody.querySelectorAll('.del-btn').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      const code = btn.dataset.code;
+      delete CODE_NAMES[code];
+      renderCodeNamesTable(document.getElementById('codeSearchInput').value);
+      if(SUPABASE_ENABLED){
+        try{ await deleteCodeNameDB(code); }
+        catch(e){ alert('已從畫面上移除，但從資料庫刪除失敗：\n' + e.message); }
+      }
+    });
+  });
+}
+
+document.getElementById('addCodeBtn').addEventListener('click', async ()=>{
+  const codeInput = document.getElementById('newCode');
+  const nameInput = document.getElementById('newName');
+  const code = codeInput.value.trim();
+  const name = nameInput.value.trim();
+  if(!code || !name){ alert('請輸入料號與品名'); return; }
+  CODE_NAMES[code] = name; // 先更新畫面（樂觀更新）
+  codeInput.value = ''; nameInput.value = '';
+  renderCodeNamesTable(document.getElementById('codeSearchInput').value);
+  codeInput.focus();
+  if(SUPABASE_ENABLED){
+    try{ await upsertCodeNameDB(code, name); }
+    catch(e){ alert('已顯示在畫面上，但寫入資料庫失敗，其他人暫時看不到這筆更新：\n' + e.message); }
+  }
+});
+[document.getElementById('newCode'), document.getElementById('newName')].forEach(el=>{
+  el.addEventListener('keydown', (e)=>{
+    if(e.key === 'Enter'){ e.preventDefault(); document.getElementById('addCodeBtn').click(); }
+  });
+});
+document.getElementById('codeSearchInput').addEventListener('input', (e)=>{
+  renderCodeNamesTable(e.target.value);
+});
+
+document.getElementById('exportCodesBtn').addEventListener('click', ()=>{
+  const sorted = {};
+  Object.keys(CODE_NAMES).sort((a,b)=>a.localeCompare(b)).forEach(k=> sorted[k] = CODE_NAMES[k]);
+  const blob = new Blob([JSON.stringify(sorted, null, 2)], {type:'application/json'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'code_names.json'; a.click();
+  URL.revokeObjectURL(url);
+});
+
+document.getElementById('importCodesBtn').addEventListener('click', ()=>{
+  document.getElementById('importCodesFile').click();
+});
+document.getElementById('importCodesFile').addEventListener('change', async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  try{
+    const text = await file.text();
+    const data = JSON.parse(text);
+    if(typeof data !== 'object' || data === null || Array.isArray(data)) throw new Error('格式不符');
+    Object.assign(CODE_NAMES, data);
+    renderCodeNamesTable(document.getElementById('codeSearchInput').value);
+    alert('已匯入 ' + Object.keys(data).length + ' 筆料號對照');
+  }catch(err){
+    alert('匯入失敗，請確認是正確的 JSON 檔案（格式：{"料號":"品名", ...}）');
+  }
+});
+
+// 頁面載入時：若已設定 Supabase，優先從資料庫讀取；否則退回讀取同層 code_names.json
+async function tryAutoLoadCodeNames(){
+  const noteEl = document.getElementById('dbStatusNote');
+  if(SUPABASE_ENABLED){
+    try{
+      const map = await loadCodeNamesFromDB();
+      Object.assign(CODE_NAMES, map);
+      noteEl.textContent = `✅ 已連線資料庫，共 ${Object.keys(map).length} 筆（所有人共用同一份）`;
+    }catch(e){
+      noteEl.textContent = '⚠️ 資料庫連線失敗，暫時改用內建對照表：' + e.message;
+    }
+  } else {
+    noteEl.textContent = '尚未設定資料庫，目前只用內建對照表 + 本機匯入/匯出（見下方說明）';
+    try{
+      const res = await fetch('./code_names.json', {cache:'no-store'});
+      if(res.ok){
+        const data = await res.json();
+        if(typeof data === 'object' && data !== null && !Array.isArray(data)){
+          Object.assign(CODE_NAMES, data);
+        }
+      }
+    }catch(e){ /* 沒有這個檔案或無法讀取，略過即可 */ }
+  }
+  renderCodeNamesTable();
+}
+
+document.getElementById('migrateBtn').addEventListener('click', async ()=>{
+  if(!SUPABASE_ENABLED){
+    alert('請先在程式碼最上方設定 SUPABASE_URL 與 SUPABASE_ANON_KEY，才能寫入資料庫。');
+    return;
+  }
+  if(!confirm(`確定要把目前畫面上共 ${Object.keys(CODE_NAMES).length} 筆料號對照，整批寫入資料庫嗎？\n（同料號會直接覆蓋資料庫中的版本）`)) return;
+  try{
+    const n = await bulkUpsertCodeNamesDB(CODE_NAMES);
+    alert(`已寫入資料庫，共 ${n} 筆`);
+    document.getElementById('dbStatusNote').textContent = `✅ 已連線資料庫，共 ${Object.keys(CODE_NAMES).length} 筆（所有人共用同一份）`;
+  }catch(e){
+    alert('寫入資料庫失敗：\n' + e.message);
+  }
 });
 
 // ---------- 相機掃描 ----------
@@ -570,16 +829,26 @@ function barcodeFormats(){
   const F = Html5QrcodeSupportedFormats;
   return [F.CODE_128, F.CODE_39, F.CODE_93, F.CODABAR, F.EAN_13, F.EAN_8, F.ITF, F.UPC_A, F.UPC_E, F.QR_CODE];
 }
+// 共用設定：可用的話優先使用瀏覽器原生 BarcodeDetector（Android Chrome/Edge 支援），
+// 辨識速度與準確率都比純 JS 解碼（zxing-js）好很多；不支援的瀏覽器（如 iOS Safari）
+// 會自動退回原本的軟體解碼，不影響功能。
+function html5QrcodeConfig(){
+  return {
+    formatsToSupport: barcodeFormats(),
+    verbose: false,
+    experimentalFeatures: { useBarCodeDetectorIfSupported: true }
+  };
+}
 
 async function startCamera(){
   const wrap = document.getElementById('cameraWrap');
   wrap.style.display = 'block';
   document.getElementById('cameraToggleBtn').textContent = '⏹ 關閉相機';
   try{
-    html5QrCode = new Html5Qrcode('reader', { formatsToSupport: barcodeFormats(), verbose:false });
+    html5QrCode = new Html5Qrcode('reader', html5QrcodeConfig());
     await html5QrCode.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 300, height: 130 } },
+      { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } },
+      { fps: 10, qrbox: { width: 340, height: 160 }, aspectRatio: 1.5 },
       (decodedText)=>{
         const now = Date.now();
         if(decodedText === lastCamDecode && (now - lastCamTime) < 2500) return; // 避免同一碼重複觸發
@@ -589,10 +858,30 @@ async function startCamera(){
       ()=>{ /* 每幀掃描失敗屬正常，忽略 */ }
     );
     cameraRunning = true;
+    setupTorchButton();
   }catch(err){
     document.getElementById('cameraHint').textContent = '無法啟動相機：' + (err && err.message ? err.message : err) + '（可改用下方「拍照掃描」）';
     document.getElementById('cameraToggleBtn').textContent = '📷 即時相機掃描';
   }
+}
+
+function setupTorchButton(){
+  const btn = document.getElementById('torchBtn');
+  btn.style.display = 'none';
+  try{
+    const track = html5QrCode.getRunningTrackCapabilities ? html5QrCode.getRunningTrackCapabilities() : null;
+    if(track && track.torch){
+      btn.style.display = 'inline-block';
+      let torchOn = false;
+      btn.onclick = async ()=>{
+        torchOn = !torchOn;
+        try{
+          await html5QrCode.applyVideoConstraints({ advanced: [{ torch: torchOn }] });
+          btn.textContent = torchOn ? '🔦 關閉手電筒' : '🔦 開啟手電筒';
+        }catch(e){ /* 這台裝置不支援手電筒控制，略過 */ }
+      };
+    }
+  }catch(e){ /* 不支援手電筒能力偵測，略過即可 */ }
 }
 
 async function stopCamera(){
@@ -601,6 +890,7 @@ async function stopCamera(){
   }
   cameraRunning = false;
   document.getElementById('cameraWrap').style.display = 'none';
+  document.getElementById('torchBtn').style.display = 'none';
   document.getElementById('cameraToggleBtn').textContent = '📷 即時相機掃描';
 }
 
@@ -621,18 +911,34 @@ function loadImageFromFile(file){
     img.src = url;
   });
 }
-function cropToFile(img, x, y, w, h){
+function cropToFile(source, x, y, w, h){
   return new Promise((resolve, reject)=>{
     const canvas = document.createElement('canvas');
     canvas.width = Math.max(1, Math.round(w));
     canvas.height = Math.max(1, Math.round(h));
     const ctx = canvas.getContext('2d');
-    ctx.drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
+    ctx.drawImage(source, x, y, w, h, 0, 0, canvas.width, canvas.height);
     canvas.toBlob((blob)=>{
       if(blob) resolve(new File([blob], 'tile.jpg', {type:'image/jpeg'}));
       else reject(new Error('empty canvas'));
     }, 'image/jpeg', 0.92);
   });
+}
+
+// 手機直拍的照片常常「畫素本身是橫的，靠 EXIF 標記轉正」，但畫布繪圖不會自動套用
+// EXIF 方向，條碼因此會被讀成橫躺，導致怎麼掃都找不到。這裡直接把原圖旋轉成
+// 0°/90°/180°/270° 四個版本分別嘗試，繞開這個問題，不需要額外解析 EXIF。
+function rotateToCanvas(img, deg){
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const swap = (deg % 180) !== 0;
+  const canvas = document.createElement('canvas');
+  canvas.width = swap ? h : w;
+  canvas.height = swap ? w : h;
+  const ctx = canvas.getContext('2d');
+  ctx.translate(canvas.width/2, canvas.height/2);
+  ctx.rotate(deg * Math.PI/180);
+  ctx.drawImage(img, -w/2, -h/2);
+  return canvas;
 }
 
 function buildGridRegions(w, h, cols, rows, overlap, offsetX, offsetY){
@@ -654,26 +960,58 @@ function buildGridRegions(w, h, cols, rows, overlap, offsetX, offsetY){
 }
 
 // 將整張照片切成多個重疊的區塊分別解碼，藉此一次找出照片中出現的多個條碼。
-// 為了降低「條碼剛好被格線切斷、兩邊都讀不到」的機率，用兩組互相錯開的格線各切一次。
+// 為了降低「條碼剛好被格線切斷、兩邊都讀不到」的機率，用兩組互相錯開的格線各切一次；
+// 也為了處理手機拍照常見的方向問題，會先試著找出正確的旋轉角度再切格。
 async function decodeMultiFromFile(file){
   const {img, url} = await loadImageFromFile(file);
-  const w = img.naturalWidth, h = img.naturalHeight;
   const scanner = new Html5Qrcode('readerFile', { formatsToSupport: barcodeFormats(), verbose:false });
   const found = new Set();
-
+  const rotations = [0, 90, 180, 270];
   const cols = 3, rows = 3, overlap = 0.22;
-  const regions = [
-    [0,0,w,h], // 先試整張
-    ...buildGridRegions(w,h,cols,rows,overlap, 0, 0),                 // 格線 A
-    ...buildGridRegions(w,h,cols,rows,overlap, w/(cols*2), h/(rows*2)) // 格線 B：整組往右下平移半格
-  ];
 
-  for(const [x,y,rw,rh] of regions){
+  function tileRegionsFor(canvas){
+    const w = canvas.width, h = canvas.height;
+    return [
+      [0,0,w,h],
+      ...buildGridRegions(w,h,cols,rows,overlap, 0, 0),
+      ...buildGridRegions(w,h,cols,rows,overlap, w/(cols*2), h/(rows*2))
+    ];
+  }
+  async function scanRegions(canvas, regions){
+    let any = false;
+    for(const [x,y,rw,rh] of regions){
+      try{
+        const tileFile = await cropToFile(canvas, x, y, rw, rh);
+        const text = await scanner.scanFile(tileFile, false);
+        if(text){ found.add(text); any = true; }
+      }catch(e){ /* 這個區塊沒有條碼，略過 */ }
+    }
+    return any;
+  }
+
+  // 第一輪：找出哪個旋轉角度讀得到（整張圖直接試，不切格，比較快）
+  let bestRotation = 0, foundOrientation = false;
+  for(const deg of rotations){
+    const canvas = rotateToCanvas(img, deg);
     try{
-      const tileFile = await cropToFile(img, x, y, rw, rh);
-      const text = await scanner.scanFile(tileFile, false);
-      if(text) found.add(text);
-    }catch(e){ /* 這個區塊沒有條碼，略過 */ }
+      const wholeFile = await cropToFile(canvas, 0, 0, canvas.width, canvas.height);
+      const text = await scanner.scanFile(wholeFile, false);
+      if(text){ found.add(text); bestRotation = deg; foundOrientation = true; break; }
+    }catch(e){ /* 這個角度整張讀不到，換下一個角度 */ }
+  }
+
+  // 第二輪：用找到的角度（或預設 0 度）切格子找出其他條碼
+  const mainCanvas = rotateToCanvas(img, bestRotation);
+  await scanRegions(mainCanvas, tileRegionsFor(mainCanvas));
+
+  // 救援機制：如果完全沒找到任何條碼，把其餘角度也切格子掃一次
+  if(found.size === 0){
+    for(const deg of rotations){
+      if(deg === bestRotation && foundOrientation) continue;
+      const canvas = rotateToCanvas(img, deg);
+      const any = await scanRegions(canvas, tileRegionsFor(canvas));
+      if(any) break;
+    }
   }
 
   try{ scanner.clear(); }catch(e){}
@@ -687,7 +1025,7 @@ document.getElementById('photoInput').addEventListener('change', async (e)=>{
   if(!file) return;
   const wrap = document.getElementById('cameraWrap');
   wrap.style.display = 'block';
-  document.getElementById('cameraHint').textContent = '正在分析照片，用雙格線交錯尋找所有條碼中…（大約需要幾秒）';
+  document.getElementById('cameraHint').textContent = '正在分析照片（自動嘗試不同角度＋切格），找不到時可能需要 10-20 秒…';
   try{
     const texts = await decodeMultiFromFile(file);
     if(texts.length === 0){
