@@ -1,0 +1,718 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
+<title>秤重掃描站</title>
+<style>
+  :root{
+    --bg:#14171a;
+    --panel:#1b1f23;
+    --panel-2:#21262b;
+    --border:#2a3136;
+    --amber:#ffb000;
+    --amber-dim:#7a5400;
+    --green:#3ed598;
+    --green-dim:#184632;
+    --red:#ff5a5f;
+    --red-dim:#4a1e1f;
+    --text:#edebe4;
+    --text-dim:#8b9198;
+    --mono: ui-monospace, "Cascadia Code", "SF Mono", Consolas, "Roboto Mono", monospace;
+    --sans: -apple-system, "Segoe UI", Roboto, "PingFang TC", "Microsoft JhengHei", sans-serif;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    background:
+      repeating-linear-gradient(180deg, rgba(255,255,255,0.012) 0px, rgba(255,255,255,0.012) 1px, transparent 1px, transparent 3px),
+      var(--bg);
+    color:var(--text);
+    font-family:var(--sans);
+    padding:20px;
+    min-height:100vh;
+  }
+  .wrap{max-width:960px;margin:0 auto;}
+
+  header{
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:18px; flex-wrap:wrap; gap:10px;
+  }
+  header h1{
+    font-size:19px; letter-spacing:2px; text-transform:uppercase;
+    margin:0; font-weight:800; color:var(--text);
+  }
+  header h1 span{color:var(--amber);}
+  .hstat{
+    font-family:var(--mono); font-size:12px; color:var(--text-dim);
+    display:flex; align-items:center; gap:14px;
+  }
+  .dot{width:8px;height:8px;border-radius:50%;background:var(--green);display:inline-block;
+    box-shadow:0 0 6px var(--green); margin-right:6px;}
+  .dot.err{background:var(--red);box-shadow:0 0 6px var(--red);}
+  .dot.warn{background:var(--amber);box-shadow:0 0 6px var(--amber);}
+
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:16px 18px;
+    margin-bottom:16px;
+  }
+
+  /* Readout */
+  .readout{
+    background:
+      repeating-linear-gradient(180deg, rgba(255,176,0,0.02) 0px, rgba(255,176,0,0.02) 2px, transparent 2px, transparent 4px),
+      #0e1012;
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:18px 20px;
+    position:relative;
+    overflow:hidden;
+  }
+  .readout-row{display:flex; justify-content:space-between; align-items:flex-end; gap:16px; flex-wrap:wrap;}
+  .readout-label{font-family:var(--mono); font-size:11px; color:var(--text-dim); letter-spacing:1.5px; text-transform:uppercase; margin-bottom:4px;}
+  .readout-code{font-family:var(--mono); font-size:15px; color:var(--text);}
+  .readout-name{font-size:14px; color:var(--amber); font-weight:600; margin-top:2px;}
+  .readout-weight{
+    font-family:var(--mono); font-size:44px; font-weight:700; color:var(--amber);
+    font-variant-numeric: tabular-nums; text-shadow:0 0 14px rgba(255,176,0,0.35);
+    line-height:1;
+  }
+  .readout-weight small{font-size:16px; color:var(--amber-dim); margin-left:4px;}
+  .badge{
+    font-family:var(--mono); font-size:11px; padding:3px 8px; border-radius:3px;
+    letter-spacing:1px; text-transform:uppercase; display:inline-block;
+  }
+  .badge.ok{background:var(--green-dim); color:var(--green); border:1px solid var(--green);}
+  .badge.dup{background:var(--amber-dim); color:var(--amber); border:1px solid var(--amber);}
+  .badge.err{background:var(--red-dim); color:var(--red); border:1px solid var(--red);}
+  .readout-empty{color:var(--text-dim); font-family:var(--mono); font-size:13px; padding:20px 0; text-align:center;}
+
+  /* Input */
+  .scan-input-wrap{margin-top:14px;}
+  .scan-input-wrap label{font-family:var(--mono); font-size:11px; color:var(--text-dim); letter-spacing:1px;}
+  input#scanInput{
+    width:100%; margin-top:6px;
+    background:#0e1012; border:1px solid var(--border); border-radius:4px;
+    color:var(--amber); font-family:var(--mono); font-size:16px;
+    padding:12px 14px; outline:none;
+  }
+  input#scanInput:focus{border-color:var(--amber);}
+
+  details{margin-top:14px;}
+  summary{cursor:pointer; font-family:var(--mono); font-size:12px; color:var(--text-dim); letter-spacing:1px;}
+  textarea#batchInput{
+    width:100%; margin-top:8px; background:#0e1012; border:1px solid var(--border);
+    border-radius:4px; color:var(--text); font-family:var(--mono); font-size:13px;
+    padding:10px; min-height:90px; resize:vertical;
+  }
+  .btn{
+    font-family:var(--sans); font-size:13px; font-weight:600; letter-spacing:0.3px;
+    border-radius:4px; border:1px solid var(--border); background:var(--panel-2);
+    color:var(--text); padding:8px 14px; cursor:pointer;
+  }
+  .btn:hover{border-color:var(--amber); color:var(--amber);}
+  .btn.primary{background:var(--amber); color:#1a1300; border-color:var(--amber);}
+  .btn.primary:hover{filter:brightness(1.08); color:#1a1300;}
+  .btn.danger:hover{border-color:var(--red); color:var(--red);}
+  .row-actions{display:flex; gap:8px; margin-top:10px; flex-wrap:wrap;}
+
+  h2.section-title{
+    font-size:12px; letter-spacing:2px; text-transform:uppercase; color:var(--text-dim);
+    margin:0 0 12px 0; font-weight:700;
+  }
+
+  table{width:100%; border-collapse:collapse; font-size:13px;}
+  th{
+    text-align:left; font-family:var(--mono); font-size:11px; color:var(--text-dim);
+    text-transform:uppercase; letter-spacing:1px; padding:6px 8px; border-bottom:1px solid var(--border);
+  }
+  td{padding:8px 8px; border-bottom:1px solid var(--border); vertical-align:middle;}
+  tr.total-row td{border-top:2px solid var(--amber); border-bottom:none; font-weight:700; color:var(--amber);}
+  .mono{font-family:var(--mono); font-variant-numeric:tabular-nums;}
+  .dim{color:var(--text-dim);}
+  .name-unknown{color:var(--text-dim); font-style:italic;}
+  .empty-hint{color:var(--text-dim); font-size:13px; padding:14px 4px; text-align:center;}
+
+  .log-row-raw{font-family:var(--mono); font-size:11px; color:var(--text-dim); word-break:break-all;}
+  .del-btn{background:none; border:none; color:var(--text-dim); cursor:pointer; font-size:15px; line-height:1;}
+  .del-btn:hover{color:var(--red);}
+
+  footer{font-family:var(--mono); font-size:11px; color:var(--text-dim); text-align:center; margin-top:20px; letter-spacing:0.5px;}
+  #reader video{width:100%!important; border-radius:6px;}
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html5-qrcode/2.3.8/html5-qrcode.min.js"></script>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <h1>秤重<span>掃描</span>站</h1>
+    <div class="hstat">
+      <span><span class="dot" id="statusDot"></span><span id="statusText">待命中</span></span>
+      <span>今日筆數 <b id="totalCount" style="color:var(--amber)">0</b></span>
+    </div>
+  </header>
+
+  <div class="panel readout" id="readoutPanel">
+    <div class="readout-empty" id="readoutEmpty">尚未掃描 — 請將游標停在下方輸入框，開始掃描條碼</div>
+    <div id="readoutContent" style="display:none">
+      <div class="readout-row">
+        <div>
+          <div class="readout-label">料號 / 品名</div>
+          <div class="readout-code" id="roCode">—</div>
+          <div class="readout-name" id="roName">—</div>
+        </div>
+        <div style="text-align:right">
+          <div class="readout-label">重量</div>
+          <div class="readout-weight" id="roWeight">0.00<small>KG</small></div>
+        </div>
+      </div>
+      <div style="margin-top:10px; display:flex; justify-content:space-between; align-items:center;">
+        <span class="dim mono" id="roDate" style="font-size:12px;">—</span>
+        <span class="badge ok" id="roBadge">OK</span>
+      </div>
+    </div>
+
+    <div class="scan-input-wrap">
+      <label>掃描輸入（掃描槍 / 鍵盤輸入後按 Enter，或使用下方相機）</label>
+      <input id="scanInput" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="在此掃描條碼…">
+    </div>
+
+    <div class="row-actions">
+      <button class="btn primary" id="cameraToggleBtn">📷 即時相機掃描</button>
+      <button class="btn" id="photoScanBtn">🖼️ 拍照掃描（可一次多個）</button>
+      <input id="photoInput" type="file" accept="image/*" capture="environment" style="display:none">
+    </div>
+    <div id="cameraWrap" style="display:none; margin-top:12px;">
+      <div id="reader" style="width:100%; border-radius:6px; overflow:hidden; border:1px solid var(--border);"></div>
+      <div class="dim mono" id="cameraHint" style="font-size:11px; margin-top:6px; text-align:center;">將條碼置於框內，對齊後會自動辨識</div>
+    </div>
+    <div id="readerFile" style="display:none"></div>
+
+    <details>
+      <summary>批次貼上多筆資料（每行一筆）</summary>
+      <textarea id="batchInput" placeholder="貼上多行條碼原始資料，每行一筆"></textarea>
+      <div class="row-actions">
+        <button class="btn primary" id="batchBtn">批次匯入</button>
+      </div>
+    </details>
+  </div>
+
+  <div class="panel">
+    <h2 class="section-title">料號加總</h2>
+    <table id="summaryTable">
+      <thead>
+        <tr><th>料號</th><th>品名</th><th style="text-align:right">箱數</th><th style="text-align:right">總重量 (kg)</th></tr>
+      </thead>
+      <tbody id="summaryBody"></tbody>
+    </table>
+    <div class="empty-hint" id="summaryEmpty">尚無資料</div>
+  </div>
+
+  <div class="panel">
+    <h2 class="section-title">掃描紀錄</h2>
+    <table id="logTable">
+      <thead>
+        <tr><th>時間</th><th>料號</th><th style="text-align:right">重量</th><th>狀態</th><th></th></tr>
+      </thead>
+      <tbody id="logBody"></tbody>
+    </table>
+    <div class="empty-hint" id="logEmpty">尚無掃描紀錄</div>
+    <div class="row-actions">
+      <button class="btn" id="exportBtn">匯出 CSV</button>
+      <button class="btn danger" id="clearBtn">清空所有資料</button>
+    </div>
+  </div>
+
+  <footer>條碼格式解析規則移植自舊版 SWIFT_PY_CA_AUS 秤重腳本 · 所有資料僅保存於本次瀏覽器分頁中</footer>
+</div>
+
+<script>
+// ---------- 品號對照表 ----------
+const CODE_NAMES = {
+  '4823':'澳洲 S 板腱', '1324':'澳洲 A 板腱', '3932':'澳洲 F 腱', '6339':'澳洲 牛前後筋',
+  '5420':'澳洲 PR 穀飼背肩', '4597':'加拿大 PR 背肩1*1', '4234':'加拿大 PR 背肩0*0',
+  '7061':'加拿大 3A KARUBE', '10164':'美國 PR 背肩1*1', '19146':'美國 CRF 板腱',
+  '24146':'美國 CH 板腱', '31209':'美國 牛培尾(壓箱)', '31647':'美國 牛培尾(真空)',
+  '31960':'美國 無骨牛小排上蓋肉', '39111':'美國 牛肩條', '57087':'巴拉圭 A 腱',
+  '57090':'巴拉圭 B 腱', '57092':'巴拉圭 C 腱', '57149':'巴拉圭 D 腱', '57153':'巴拉圭 F 腱',
+  '58046':'美國 PR 板腱', '58126':'美國 SEL 胸腹', '58146':'美國 CH 板腱', '58160':'美國 CH 翼板',
+  '58161':'美國 SEL 翼板', '58215':'熟成美國 CH SBA 牛培根', '58216':'美國 CH 牛培根',
+  '58226':'美國 CH 胸腹', '65317':'巴拉圭 KNK 和尚頭', '58546':'美國 CAB 板腱',
+  '58845':'美國 CH 背肩 0*0', '58945':'美國 CAB 背肩 0*0', '58119':'美國 CH 牛肋條',
+  '58958':'美國 CH 牛肋條-40', '79019':'美國 牛培根', '93712':'美國 PR CAB三叉肉',
+  '79146':'美國 SWIF 板腱', '94525':'巴拉圭 3/4菲力', '94524':'巴拉圭 條肉',
+  '87757':'巴拉圭 牛腩', '57644':'巴拉圭 牛肚', '94528':'巴拉圭 板腱',
+  '91635':'紐西蘭 2/3沙朗', '91636':'紐西蘭 3/4沙朗', '73-688':'紐西蘭 PS 板腱',
+  '73-683':'紐西蘭 板腱~C', '73-771':'紐西蘭 3/4沙朗~B', '73-048':'紐西蘭 牛骨'
+};
+
+// ---------- 條碼解析（移植自 program1~program9） ----------
+function fmtWeight(numStr){
+  // 前2碼為整數部分，其餘為小數部分（與原始 Python 邏輯一致）
+  const intPart = parseInt(numStr.slice(0,2), 10);
+  const decPart = numStr.slice(2);
+  const val = parseFloat(intPart + '.' + decPart);
+  return val;
+}
+function ymd(a,b,c){ return a+b+c; }
+
+function parseBarcode(raw){
+  const data = raw.trim();
+  const len = data.length;
+  try{
+    if(len === 46){
+      if(data.startsWith('2800')){
+        const codeNumber = data.slice(17,22);
+        const weightKg = fmtWeight(data.slice(25,29));
+        const pd = data.slice(29,37); // DDMMYYYY
+        const date = ymd(pd.slice(4), pd.slice(2,4), pd.slice(0,2)); // YYYYMMDD
+        return {codeNumber, weightKg, date, rule:'2800·46碼'};
+      }
+      if(data.startsWith('01900')){
+        const codeNumber = data.slice(10,15);
+        const lb = fmtWeight(data.slice(23,26));
+        const weightKg = lb * 0.453592; // 磅轉公斤
+        const pd = data.slice(28,34); // YYMMDD
+        const date = ymd('20'+pd.slice(0,2), pd.slice(2,4), pd.slice(4));
+        return {codeNumber, weightKg, date, rule:'01900·46碼'};
+      }
+      if(data.startsWith('01906')){
+        const codeNumber = data.slice(11,15);
+        const weightKg = fmtWeight(data.slice(22,26));
+        const pd = data.slice(28,34);
+        const date = ymd('20'+pd.slice(0,2), pd.slice(2,4), pd.slice(4));
+        return {codeNumber, weightKg, date, rule:'01906·46碼'};
+      }
+      return null;
+    }
+    if(len === 48){
+      if(data.startsWith('01900')){
+        const codeNumber = data.slice(10,15);
+        const pd = data.slice(18,24);
+        const date = ymd('20'+pd.slice(0,2), pd.slice(2,4), pd.slice(4));
+        const weightKg = fmtWeight(data.slice(30,34));
+        return {codeNumber, weightKg, date, rule:'01900·48碼'};
+      }
+      if(data.startsWith('01994')){
+        const codeNumber = data.slice(10,15);
+        const pd = data.slice(18,24);
+        const date = ymd(pd.slice(0,2), pd.slice(2,4), pd.slice(4));
+        const weightKg = fmtWeight(data.slice(30,34));
+        return {codeNumber, weightKg, date, rule:'01994·48碼'};
+      }
+      if(data.startsWith('01993')){
+        const codeNumber = data.slice(12,16);
+        const pd = data.slice(28,34);
+        const date = ymd(pd.slice(0,2), pd.slice(2,4), pd.slice(4));
+        const weightKg = fmtWeight(data.slice(22,25));
+        return {codeNumber, weightKg, date, rule:'01993·48碼'};
+      }
+      if(data.startsWith('0196')){
+        const codeNumber = data.slice(10,15);
+        const pd = data.slice(18,24);
+        const date = ymd(pd.slice(0,2), pd.slice(2,4), pd.slice(4));
+        const weightKg = fmtWeight(data.slice(30,34));
+        return {codeNumber, weightKg, date, rule:'0196·48碼'};
+      }
+      return null;
+    }
+    if(len === 47){
+      if(data.startsWith('0105')){
+        const codeNumber = data.slice(12,17);
+        const pd = data.slice(28,34);
+        const date = ymd(pd.slice(0,2), pd.slice(2,4), pd.slice(4));
+        const weightKg = fmtWeight(data.slice(22,26));
+        return {codeNumber, weightKg, date, rule:'0105·47碼'};
+      }
+      return null;
+    }
+    if(len === 29){
+      const parts = data.split(/\s+/).filter(Boolean);
+      const codeNumber = parts[parts.length-1];
+      const weightKg = fmtWeight(data.slice(8,12));
+      return {codeNumber, weightKg, date:null, rule:'29碼'};
+    }
+    return null;
+  }catch(e){
+    return null;
+  }
+}
+
+// ---------- 狀態 ----------
+const seenRaw = new Set();
+let log = []; // {id, raw, codeNumber, name, weightKg, date, status, rule, ts}
+let seq = 0;
+let audioCtx = null;
+
+function beep(freq, dur, type){
+  try{
+    if(!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = audioCtx.createOscillator();
+    const gain = audioCtx.createGain();
+    osc.type = type || 'sine';
+    osc.frequency.value = freq;
+    gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+    gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+    osc.connect(gain); gain.connect(audioCtx.destination);
+    osc.start(); osc.stop(audioCtx.currentTime + dur);
+  }catch(e){}
+}
+
+function handleScan(rawInput){
+  const raw = rawInput.trim();
+  if(!raw) return;
+
+  const id = ++seq;
+  const ts = new Date();
+
+  if(seenRaw.has(raw)){
+    log.unshift({id, raw, codeNumber:'—', name:'', weightKg:0, date:null, status:'dup', rule:'', ts});
+    beep(220, 0.18, 'square');
+    updateStatus('warn', '重複條碼，已略過');
+    renderReadoutDup(raw);
+    render();
+    return;
+  }
+
+  const parsed = parseBarcode(raw);
+  if(!parsed){
+    log.unshift({id, raw, codeNumber:'—', name:'', weightKg:0, date:null, status:'err', rule:'', ts});
+    beep(140, 0.25, 'sawtooth');
+    updateStatus('err', '無法辨識的格式');
+    renderReadoutErr(raw);
+    render();
+    return;
+  }
+
+  seenRaw.add(raw);
+  const name = CODE_NAMES[parsed.codeNumber] || '';
+  log.unshift({id, raw, codeNumber:parsed.codeNumber, name, weightKg:parsed.weightKg, date:parsed.date, status:'ok', rule:parsed.rule, ts});
+  beep(880, 0.12, 'sine');
+  updateStatus('ok', '掃描成功');
+  renderReadoutOk(parsed, name);
+  render();
+}
+
+function updateStatus(kind, text){
+  const dot = document.getElementById('statusDot');
+  const t = document.getElementById('statusText');
+  dot.className = 'dot' + (kind==='ok' ? '' : kind==='warn' ? ' warn' : ' err');
+  t.textContent = text;
+}
+
+function renderReadoutOk(parsed, name){
+  document.getElementById('readoutEmpty').style.display = 'none';
+  const c = document.getElementById('readoutContent');
+  c.style.display = 'block';
+  document.getElementById('roCode').textContent = parsed.codeNumber;
+  document.getElementById('roName').textContent = name || '（未登錄品名）';
+  document.getElementById('roName').className = name ? 'readout-name' : 'readout-name name-unknown';
+  document.getElementById('roWeight').innerHTML = parsed.weightKg.toFixed(2) + '<small>KG</small>';
+  document.getElementById('roDate').textContent = parsed.date ? ('生產日期 ' + parsed.date) : '—';
+  const b = document.getElementById('roBadge');
+  b.textContent = 'OK'; b.className = 'badge ok';
+}
+function renderReadoutDup(raw){
+  document.getElementById('readoutEmpty').style.display = 'none';
+  document.getElementById('readoutContent').style.display = 'block';
+  document.getElementById('roCode').textContent = raw.slice(0,20) + (raw.length>20?'…':'');
+  document.getElementById('roName').textContent = '此條碼已掃描過';
+  document.getElementById('roName').className = 'readout-name name-unknown';
+  document.getElementById('roWeight').innerHTML = '—';
+  document.getElementById('roDate').textContent = '已自動排除，未計入加總';
+  const b = document.getElementById('roBadge');
+  b.textContent = '重複'; b.className = 'badge dup';
+}
+function renderReadoutErr(raw){
+  document.getElementById('readoutEmpty').style.display = 'none';
+  document.getElementById('readoutContent').style.display = 'block';
+  document.getElementById('roCode').textContent = raw.slice(0,20) + (raw.length>20?'…':'');
+  document.getElementById('roName').textContent = '長度 ' + raw.length + ' 碼，無符合的解析規則';
+  document.getElementById('roName').className = 'readout-name name-unknown';
+  document.getElementById('roWeight').innerHTML = '—';
+  document.getElementById('roDate').textContent = '未計入加總';
+  const b = document.getElementById('roBadge');
+  b.textContent = '無法辨識'; b.className = 'badge err';
+}
+
+function computeGroups(){
+  const groups = new Map();
+  for(const entry of log){
+    if(entry.status !== 'ok') continue;
+    if(!groups.has(entry.codeNumber)){
+      groups.set(entry.codeNumber, {name:entry.name, count:0, weight:0});
+    }
+    const g = groups.get(entry.codeNumber);
+    g.count += 1;
+    g.weight += entry.weightKg;
+  }
+  return groups;
+}
+
+function render(){
+  document.getElementById('totalCount').textContent = log.filter(e=>e.status==='ok').length;
+
+  // summary
+  const groups = computeGroups();
+  const body = document.getElementById('summaryBody');
+  body.innerHTML = '';
+  let grandCount = 0, grandWeight = 0;
+  const sorted = [...groups.entries()].sort((a,b)=> a[0].localeCompare(b[0]));
+  for(const [code, g] of sorted){
+    grandCount += g.count; grandWeight += g.weight;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `<td class="mono">${code}</td>
+      <td class="${g.name?'':'name-unknown'}">${g.name || '未登錄品名'}</td>
+      <td class="mono" style="text-align:right">${g.count}</td>
+      <td class="mono" style="text-align:right">${g.weight.toFixed(2)}</td>`;
+    body.appendChild(tr);
+  }
+  if(sorted.length){
+    const tr = document.createElement('tr');
+    tr.className = 'total-row';
+    tr.innerHTML = `<td colspan="2">總計</td>
+      <td class="mono" style="text-align:right">${grandCount}</td>
+      <td class="mono" style="text-align:right">${grandWeight.toFixed(2)}</td>`;
+    body.appendChild(tr);
+  }
+  document.getElementById('summaryEmpty').style.display = sorted.length ? 'none' : 'block';
+
+  // log
+  const lbody = document.getElementById('logBody');
+  lbody.innerHTML = '';
+  for(const entry of log){
+    const tr = document.createElement('tr');
+    const time = entry.ts.toLocaleTimeString('zh-TW', {hour12:false});
+    let badge = '';
+    if(entry.status==='ok') badge = '<span class="badge ok">OK</span>';
+    else if(entry.status==='dup') badge = '<span class="badge dup">重複</span>';
+    else badge = '<span class="badge err">無法辨識</span>';
+    tr.innerHTML = `<td class="mono dim">${time}</td>
+      <td class="mono">${entry.codeNumber}${entry.name?('<br><span class="dim" style="font-size:11px">'+entry.name+'</span>'):''}</td>
+      <td class="mono" style="text-align:right">${entry.status==='ok' ? entry.weightKg.toFixed(2) : '—'}</td>
+      <td>${badge}</td>
+      <td style="text-align:right"><button class="del-btn" data-id="${entry.id}" title="刪除">✕</button></td>`;
+    lbody.appendChild(tr);
+  }
+  document.getElementById('logEmpty').style.display = log.length ? 'none' : 'block';
+
+  lbody.querySelectorAll('.del-btn').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      const id = parseInt(btn.dataset.id, 10);
+      const idx = log.findIndex(e=>e.id===id);
+      if(idx>-1){
+        const entry = log[idx];
+        seenRaw.delete(entry.raw);
+        log.splice(idx,1);
+        render();
+      }
+    });
+  });
+}
+
+function exportCSV(){
+  const groups = computeGroups();
+  let lines = ['料號,品名,箱數,總重量kg'];
+  for(const [code, g] of [...groups.entries()].sort((a,b)=>a[0].localeCompare(b[0]))){
+    lines.push(`${code},${g.name},${g.count},${g.weight.toFixed(2)}`);
+  }
+  lines.push('');
+  lines.push('時間,料號,品名,重量kg,生產日期,狀態,原始資料');
+  for(const e of [...log].reverse()){
+    const statusText = e.status==='ok' ? 'OK' : e.status==='dup' ? '重複' : '無法辨識';
+    lines.push(`${e.ts.toLocaleString('zh-TW')},${e.codeNumber},${e.name},${e.status==='ok'?e.weightKg.toFixed(2):''},${e.date||''},${statusText},"${e.raw}"`);
+  }
+  const blob = new Blob(['\uFEFF' + lines.join('\n')], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = '秤重掃描紀錄_' + new Date().toISOString().slice(0,10) + '.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- 事件綁定 ----------
+const scanInput = document.getElementById('scanInput');
+scanInput.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' || e.key === 'Tab'){
+    e.preventDefault();
+    const val = scanInput.value;
+    scanInput.value = '';
+    handleScan(val);
+  }
+});
+document.addEventListener('click', (e)=>{
+  if(e.target.closest('button') || e.target.closest('textarea')) return;
+  scanInput.focus();
+});
+window.addEventListener('load', ()=> scanInput.focus());
+
+document.getElementById('batchBtn').addEventListener('click', ()=>{
+  const ta = document.getElementById('batchInput');
+  const lines = ta.value.split('\n');
+  for(const l of lines){
+    if(l.trim()) handleScan(l);
+  }
+  ta.value = '';
+});
+
+// ---------- 相機掃描 ----------
+let html5QrCode = null;
+let cameraRunning = false;
+let lastCamDecode = '';
+let lastCamTime = 0;
+
+function barcodeFormats(){
+  const F = Html5QrcodeSupportedFormats;
+  return [F.CODE_128, F.CODE_39, F.CODE_93, F.CODABAR, F.EAN_13, F.EAN_8, F.ITF, F.UPC_A, F.UPC_E, F.QR_CODE];
+}
+
+async function startCamera(){
+  const wrap = document.getElementById('cameraWrap');
+  wrap.style.display = 'block';
+  document.getElementById('cameraToggleBtn').textContent = '⏹ 關閉相機';
+  try{
+    html5QrCode = new Html5Qrcode('reader', { formatsToSupport: barcodeFormats(), verbose:false });
+    await html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 300, height: 130 } },
+      (decodedText)=>{
+        const now = Date.now();
+        if(decodedText === lastCamDecode && (now - lastCamTime) < 2500) return; // 避免同一碼重複觸發
+        lastCamDecode = decodedText; lastCamTime = now;
+        handleScan(decodedText);
+      },
+      ()=>{ /* 每幀掃描失敗屬正常，忽略 */ }
+    );
+    cameraRunning = true;
+  }catch(err){
+    document.getElementById('cameraHint').textContent = '無法啟動相機：' + (err && err.message ? err.message : err) + '（可改用下方「拍照掃描」）';
+    document.getElementById('cameraToggleBtn').textContent = '📷 即時相機掃描';
+  }
+}
+
+async function stopCamera(){
+  if(html5QrCode && cameraRunning){
+    try{ await html5QrCode.stop(); html5QrCode.clear(); }catch(e){}
+  }
+  cameraRunning = false;
+  document.getElementById('cameraWrap').style.display = 'none';
+  document.getElementById('cameraToggleBtn').textContent = '📷 即時相機掃描';
+}
+
+document.getElementById('cameraToggleBtn').addEventListener('click', ()=>{
+  if(cameraRunning) stopCamera(); else startCamera();
+});
+
+document.getElementById('photoScanBtn').addEventListener('click', ()=>{
+  document.getElementById('photoInput').click();
+});
+
+function loadImageFromFile(file){
+  return new Promise((resolve, reject)=>{
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+    img.onload = ()=>{ resolve({img, url}); };
+    img.onerror = reject;
+    img.src = url;
+  });
+}
+function cropToFile(img, x, y, w, h){
+  return new Promise((resolve, reject)=>{
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(w));
+    canvas.height = Math.max(1, Math.round(h));
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(img, x, y, w, h, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob((blob)=>{
+      if(blob) resolve(new File([blob], 'tile.jpg', {type:'image/jpeg'}));
+      else reject(new Error('empty canvas'));
+    }, 'image/jpeg', 0.92);
+  });
+}
+
+function buildGridRegions(w, h, cols, rows, overlap, offsetX, offsetY){
+  const tileW = w/cols, tileH = h/rows;
+  const regions = [];
+  for(let r=0;r<rows;r++){
+    for(let c=0;c<cols;c++){
+      const cx0 = c*tileW + offsetX, cy0 = r*tileH + offsetY;
+      const cx1 = cx0+tileW, cy1 = cy0+tileH;
+      const x0 = Math.max(0, cx0 - tileW*overlap);
+      const y0 = Math.max(0, cy0 - tileH*overlap);
+      const x1 = Math.min(w, cx1 + tileW*overlap);
+      const y1 = Math.min(h, cy1 + tileH*overlap);
+      if(x1-x0 < 15 || y1-y0 < 15) continue;
+      regions.push([x0,y0,x1-x0,y1-y0]);
+    }
+  }
+  return regions;
+}
+
+// 將整張照片切成多個重疊的區塊分別解碼，藉此一次找出照片中出現的多個條碼。
+// 為了降低「條碼剛好被格線切斷、兩邊都讀不到」的機率，用兩組互相錯開的格線各切一次。
+async function decodeMultiFromFile(file){
+  const {img, url} = await loadImageFromFile(file);
+  const w = img.naturalWidth, h = img.naturalHeight;
+  const scanner = new Html5Qrcode('readerFile', { formatsToSupport: barcodeFormats(), verbose:false });
+  const found = new Set();
+
+  const cols = 3, rows = 3, overlap = 0.22;
+  const regions = [
+    [0,0,w,h], // 先試整張
+    ...buildGridRegions(w,h,cols,rows,overlap, 0, 0),                 // 格線 A
+    ...buildGridRegions(w,h,cols,rows,overlap, w/(cols*2), h/(rows*2)) // 格線 B：整組往右下平移半格
+  ];
+
+  for(const [x,y,rw,rh] of regions){
+    try{
+      const tileFile = await cropToFile(img, x, y, rw, rh);
+      const text = await scanner.scanFile(tileFile, false);
+      if(text) found.add(text);
+    }catch(e){ /* 這個區塊沒有條碼，略過 */ }
+  }
+
+  try{ scanner.clear(); }catch(e){}
+  URL.revokeObjectURL(url);
+  return [...found];
+}
+
+document.getElementById('photoInput').addEventListener('change', async (e)=>{
+  const file = e.target.files && e.target.files[0];
+  e.target.value = '';
+  if(!file) return;
+  const wrap = document.getElementById('cameraWrap');
+  wrap.style.display = 'block';
+  document.getElementById('cameraHint').textContent = '正在分析照片，用雙格線交錯尋找所有條碼中…（大約需要幾秒）';
+  try{
+    const texts = await decodeMultiFromFile(file);
+    if(texts.length === 0){
+      document.getElementById('cameraHint').textContent = '這張照片找不到可辨識的條碼，請對焦清楚、避免反光、或分開拍後再試一次';
+    } else {
+      texts.forEach(t => handleScan(t));
+      document.getElementById('cameraHint').textContent = `這張照片辨識到 ${texts.length} 個條碼，可再拍下一張，或關閉相機區塊`;
+    }
+  }catch(err){
+    document.getElementById('cameraHint').textContent = '照片辨識發生錯誤，請再試一次';
+  }
+});
+
+document.getElementById('exportBtn').addEventListener('click', exportCSV);
+document.getElementById('clearBtn').addEventListener('click', ()=>{
+  if(confirm('確定要清空所有掃描資料嗎？此動作無法復原。')){
+    log = []; seenRaw.clear(); seq = 0;
+    document.getElementById('readoutEmpty').style.display = 'block';
+    document.getElementById('readoutContent').style.display = 'none';
+    updateStatus('', '待命中');
+    render();
+  }
+});
+
+render();
+</script>
+</body>
+</html>
