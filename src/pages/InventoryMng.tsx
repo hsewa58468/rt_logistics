@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import ExcelJS from 'exceljs'
 import { supabase } from '../lib/supabase'
 import Modal from '../components/Modal'
@@ -40,6 +40,19 @@ interface QueryRecord {
   date: string
   notes: string
   inventory: { item_name: string; part_number: string; created_at: string } | null
+}
+
+interface HintMsg {
+  id: number
+  title: string
+  content: string
+  priority: 'normal' | 'high' | 'urgent'
+}
+
+const HINT_PRIORITY_COLOR: Record<HintMsg['priority'], string> = {
+  normal: '#94a3b8',
+  high:   '#fbbf24',
+  urgent: '#f87171',
 }
 
 const todayTW = () => new Date().toLocaleDateString('sv', { timeZone: 'Asia/Taipei' })
@@ -116,6 +129,11 @@ const InventoryMng: React.FC = () => {
   const [queryResults, setQueryResults] = useState<QueryRecord[]>([])
   const [queryLoading, setQueryLoading] = useState(false)
 
+  // 跑馬燈訊息
+  const [hintMsgs, setHintMsgs] = useState<HintMsg[]>([])
+  const marqueeRef = useRef<HTMLDivElement>(null)
+  const [marqueeDuration, setMarqueeDuration] = useState(20)
+
   useEffect(() => {
     fetchWarehouses()
   }, [])
@@ -123,6 +141,33 @@ const InventoryMng: React.FC = () => {
   useEffect(() => {
     if (activeWarehouseId) fetchItems(activeWarehouseId)
   }, [activeWarehouseId])
+
+  useEffect(() => {
+    const name = warehouses.find((w) => w.warehouse_id === activeWarehouseId)?.warehouse_name
+    if (!name) { setHintMsgs([]); return }
+    supabase
+      .from('hint_msg')
+      .select('id, title, content, priority')
+      .eq('warehouse', name)
+      .order('priority', { ascending: false })
+      .then(({ data }) => setHintMsgs(data ?? []))
+  }, [activeWarehouseId, warehouses])
+
+  // 量測跑馬燈寬度，換算成固定速率（80 px/s）
+  useEffect(() => {
+    if (!marqueeRef.current || hintMsgs.length === 0) return
+    const wrap = marqueeRef.current.closest<HTMLElement>('.hint-marquee-wrap')
+    const wrapWidth = wrap?.offsetWidth ?? 0
+    // 強制每個 half 至少等於容器寬，確保內容填滿後才開始循環
+    if (wrapWidth > 0) {
+      marqueeRef.current.querySelectorAll<HTMLElement>('.hint-marquee-half').forEach((h) => {
+        h.style.minWidth = `${wrapWidth}px`
+      })
+    }
+    const half = marqueeRef.current.querySelector<HTMLElement>('.hint-marquee-half')
+    const singleWidth = half ? half.offsetWidth : wrapWidth
+    setMarqueeDuration(Math.max(singleWidth / 80, 5))
+  }, [hintMsgs])
 
   const fetchWarehouses = async () => {
     const { data, error } = await supabase.from('warehouses').select('*').order('warehouse_name')
@@ -765,6 +810,34 @@ const InventoryMng: React.FC = () => {
           </button>
         )}
       </div>
+
+      {/* 跑馬燈 */}
+      {hintMsgs.length > 0 && (
+        <div className="hint-marquee-wrap">
+          <div
+            className="hint-marquee-track"
+            ref={marqueeRef}
+            style={{ animationDuration: `${marqueeDuration}s` }}
+          >
+            {[0, 1].map((copy) => (
+              <span key={copy} className="hint-marquee-half">
+                {hintMsgs.map((m, i) => (
+                  <span key={i} className="hint-marquee-item">
+                    <span
+                      className="hint-marquee-dot"
+                      style={{ background: HINT_PRIORITY_COLOR[m.priority] }}
+                    />
+                    <span className="hint-marquee-title" style={{ color: HINT_PRIORITY_COLOR[m.priority] }}>
+                      {m.title}
+                    </span>
+                    <span className="hint-marquee-content">{m.content}</span>
+                  </span>
+                ))}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 分頁內容區 */}
       <div className="inventory-content">

@@ -21,12 +21,21 @@ const Navbar = () => {
       <div className="nav-brand">瑞騰倉庫管理系統</div>
 
       <div className="nav-links">
-        <Link to="/" className={location.pathname === '/warehouse' ? 'active' : ''}>
+        <Link to="/warehouse" className={location.pathname === '/warehouse' ? 'active' : ''}>
           路線規劃
         </Link>
         <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>
           庫存管理
         </Link>
+        <a href="/scan.html">掃描器</a>
+        {!isGuest && (
+          <Link
+            to="/notifications"
+            className={location.pathname === '/notifications' ? 'active' : ''}
+          >
+            推播設定
+          </Link>
+        )}
       </div>
 
       {isGuest ? (
@@ -53,7 +62,11 @@ const Navbar = () => {
 
       {menuOpen && (
         <div className="nav-mobile-menu">
-          <Link to="/" className={location.pathname === '/' ? 'active' : ''} onClick={close}>
+          <Link
+            to="/warehouse"
+            className={location.pathname === '/warehouse' ? 'active' : ''}
+            onClick={close}
+          >
             路線規劃
           </Link>
           <Link
@@ -63,6 +76,16 @@ const Navbar = () => {
           >
             庫存管理
           </Link>
+          <a href="/scan.html">掃描器</a>
+          {!isGuest && (
+            <Link
+              to="/notifications"
+              className={location.pathname === '/notifications' ? 'active' : ''}
+              onClick={close}
+            >
+              推播設定
+            </Link>
+          )}
           {isGuest ? (
             <div className="nav-mobile-user">
               <span className="nav-guest-badge">訪客模式</span>

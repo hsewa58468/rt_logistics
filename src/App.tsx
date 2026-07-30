@@ -5,6 +5,7 @@ import Navbar from './components/Navbar'
 import Login from './pages/Login'
 import Warehouse from './pages/Warehouse'
 import InventoryMng from './pages/InventoryMng'
+import NotificationSettings from './pages/NotificationSettings'
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
                     <Route path="/" element={<Navigate to="/inventory" replace />} />
                     <Route path="/inventory" element={<InventoryMng />} />
                     <Route path="/warehouse" element={<Warehouse />} />
+                    <Route path="/notifications" element={<NotificationSettings />} />
                   </Routes>
                 </div>
               </ProtectedRoute>
