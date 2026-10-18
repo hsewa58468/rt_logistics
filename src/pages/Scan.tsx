@@ -628,7 +628,12 @@ const Scan: React.FC = () => {
       html5QrCodeRef.current = inst
       await inst.start(
         { facingMode: 'environment' },
-        { fps: 10, qrbox: { width: 340, height: 160 }, aspectRatio: 1.5 },
+        {
+          fps: 10,
+          qrbox: { width: 340, height: 160 },
+          aspectRatio: 1.5,
+          videoConstraints: { facingMode: 'environment', width: { ideal: 1920 }, height: { ideal: 1080 } },
+        },
         (decodedText) => {
           const now = Date.now()
           if (decodedText === lastCamDecode.current && now - lastCamTime.current < 2500) return
