@@ -27,7 +27,9 @@ const Navbar = () => {
         <Link to="/inventory" className={location.pathname === '/inventory' ? 'active' : ''}>
           庫存管理
         </Link>
-        <a href="/scan.html">掃描器</a>
+        <Link to="/scan" className={location.pathname === '/scan' ? 'active' : ''}>
+          掃描器
+        </Link>
         {!isGuest && (
           <Link
             to="/notifications"
@@ -76,7 +78,13 @@ const Navbar = () => {
           >
             庫存管理
           </Link>
-          <a href="/scan.html">掃描器</a>
+          <Link
+            to="/scan"
+            className={location.pathname === '/scan' ? 'active' : ''}
+            onClick={close}
+          >
+            掃描器
+          </Link>
           {!isGuest && (
             <Link
               to="/notifications"

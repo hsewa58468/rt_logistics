@@ -1,0 +1,364 @@
+.scan-page {
+  --bg: #14171a;
+  --panel: #1b1f23;
+  --panel-2: #21262b;
+  --border: #2a3136;
+  --amber: #ffb000;
+  --amber-dim: #7a5400;
+  --green: #3ed598;
+  --green-dim: #184632;
+  --red: #ff5a5f;
+  --red-dim: #4a1e1f;
+  --text: #edebe4;
+  --text-dim: #8b9198;
+  --mono: ui-monospace, 'Cascadia Code', 'SF Mono', Consolas, 'Roboto Mono', monospace;
+  --sans: -apple-system, 'Segoe UI', Roboto, 'PingFang TC', 'Microsoft JhengHei', sans-serif;
+
+  background:
+    repeating-linear-gradient(180deg, rgba(255, 255, 255, 0.012) 0px, rgba(255, 255, 255, 0.012) 1px, transparent 1px, transparent 3px),
+    var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  padding: 20px;
+  // 全站 :root 設了 overflow:hidden（其他頁面靠 .app-container 內部捲動），
+  // 這頁不在那層容器底下，所以自己鋪滿視窗並在內部捲動，手機/縮小視窗時才看得到下方內容。
+  position: fixed;
+  inset: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+  }
+
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+    gap: 10px;
+
+    h1 {
+      font-size: 19px;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      margin: 0;
+      font-weight: 800;
+      color: var(--text);
+
+      span {
+        color: var(--amber);
+      }
+    }
+  }
+
+  .hstat {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--green);
+    display: inline-block;
+    box-shadow: 0 0 6px var(--green);
+    margin-right: 6px;
+
+    &.err {
+      background: var(--red);
+      box-shadow: 0 0 6px var(--red);
+    }
+    &.warn {
+      background: var(--amber);
+      box-shadow: 0 0 6px var(--amber);
+    }
+  }
+
+  .panel {
+    background: var(--panel);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 16px 18px;
+    margin-bottom: 16px;
+  }
+
+  .readout {
+    background:
+      repeating-linear-gradient(180deg, rgba(255, 176, 0, 0.02) 0px, rgba(255, 176, 0, 0.02) 2px, transparent 2px, transparent 4px),
+      #0e1012;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 18px 20px;
+    position: relative;
+    overflow: hidden;
+
+    &-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      gap: 16px;
+      flex-wrap: wrap;
+    }
+    &-label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      margin-bottom: 4px;
+    }
+    &-code {
+      font-family: var(--mono);
+      font-size: 15px;
+      color: var(--text);
+      word-break: break-all;
+    }
+    &-name {
+      font-size: 14px;
+      color: var(--amber);
+      font-weight: 600;
+      margin-top: 2px;
+    }
+    &-weight {
+      font-family: var(--mono);
+      font-size: 44px;
+      font-weight: 700;
+      color: var(--amber);
+      font-variant-numeric: tabular-nums;
+      text-shadow: 0 0 14px rgba(255, 176, 0, 0.35);
+      line-height: 1;
+
+      small {
+        font-size: 16px;
+        color: var(--amber-dim);
+        margin-left: 4px;
+      }
+    }
+    &-empty {
+      color: var(--text-dim);
+      font-family: var(--mono);
+      font-size: 13px;
+      padding: 20px 0;
+      text-align: center;
+    }
+  }
+
+  .badge {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 3px 8px;
+    border-radius: 3px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    display: inline-block;
+
+    &.ok {
+      background: var(--green-dim);
+      color: var(--green);
+      border: 1px solid var(--green);
+    }
+    &.dup {
+      background: var(--amber-dim);
+      color: var(--amber);
+      border: 1px solid var(--amber);
+    }
+    &.err {
+      background: var(--red-dim);
+      color: var(--red);
+      border: 1px solid var(--red);
+    }
+  }
+
+  .scan-input-wrap {
+    margin-top: 14px;
+
+    label {
+      font-family: var(--mono);
+      font-size: 11px;
+      color: var(--text-dim);
+      letter-spacing: 1px;
+    }
+  }
+
+  input#scanInput {
+    width: 100%;
+    margin-top: 6px;
+    background: #0e1012;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 16px;
+    padding: 12px 14px;
+    outline: none;
+
+    &:focus {
+      border-color: var(--amber);
+    }
+  }
+
+  details {
+    margin-top: 14px;
+  }
+  summary {
+    cursor: pointer;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+  }
+  textarea#batchInput {
+    width: 100%;
+    margin-top: 8px;
+    background: #0e1012;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 10px;
+    min-height: 90px;
+    resize: vertical;
+  }
+
+  .btn {
+    font-family: var(--sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    background: var(--panel-2);
+    color: var(--text);
+    padding: 8px 14px;
+    cursor: pointer;
+
+    &:hover {
+      border-color: var(--amber);
+      color: var(--amber);
+    }
+    &.primary {
+      background: var(--amber);
+      color: #1a1300;
+      border-color: var(--amber);
+
+      &:hover {
+        filter: brightness(1.08);
+        color: #1a1300;
+      }
+    }
+    &.danger:hover {
+      border-color: var(--red);
+      color: var(--red);
+    }
+  }
+
+  .row-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+    flex-wrap: wrap;
+    align-items: center;
+  }
+
+  h2.section-title {
+    font-size: 12px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin: 0 0 12px 0;
+    font-weight: 700;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  th {
+    text-align: left;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    padding: 6px 8px;
+    border-bottom: 1px solid var(--border);
+  }
+  td {
+    padding: 8px 8px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  tr.total-row td {
+    border-top: 2px solid var(--amber);
+    border-bottom: none;
+    font-weight: 700;
+    color: var(--amber);
+  }
+
+  .code-names-scroll {
+    max-height: 360px;
+    overflow-y: auto;
+
+    thead th {
+      position: sticky;
+      top: 0;
+      background: var(--panel);
+      z-index: 1;
+    }
+  }
+
+  .mono {
+    font-family: var(--mono);
+    font-variant-numeric: tabular-nums;
+  }
+  .dim {
+    color: var(--text-dim);
+  }
+  .name-unknown {
+    color: var(--text-dim);
+    font-style: italic;
+  }
+  .empty-hint {
+    color: var(--text-dim);
+    font-size: 13px;
+    padding: 14px 4px;
+    text-align: center;
+  }
+
+  .del-btn {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    cursor: pointer;
+    font-size: 15px;
+    line-height: 1;
+
+    &:hover {
+      color: var(--red);
+    }
+  }
+
+  footer {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--text-dim);
+    text-align: center;
+    margin-top: 20px;
+    letter-spacing: 0.5px;
+  }
+
+  #reader video {
+    width: 100% !important;
+    border-radius: 6px;
+  }
+}

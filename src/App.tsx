@@ -6,6 +6,7 @@ import Login from './pages/Login'
 import Warehouse from './pages/Warehouse'
 import InventoryMng from './pages/InventoryMng'
 import NotificationSettings from './pages/NotificationSettings'
+import Scan from './pages/Scan'
 
 function App() {
   return (
@@ -13,6 +14,7 @@ function App() {
       <Router>
         <Routes>
           <Route path="/login" element={<Login />} />
+          <Route path="/scan" element={<Scan />} />
           <Route
             path="/*"
             element={
