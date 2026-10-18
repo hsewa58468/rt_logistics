@@ -627,7 +627,7 @@ const Scan: React.FC = () => {
       } as any)
       html5QrCodeRef.current = inst
       await inst.start(
-        { facingMode: { ideal: 'environment' } } as any,
+        { facingMode: 'environment' },
         { fps: 10, qrbox: { width: 340, height: 160 }, aspectRatio: 1.5 },
         (decodedText) => {
           const now = Date.now()
